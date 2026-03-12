@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>NexusChat ⚡</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#06060f;--bg1:#0c0c1e;--bg2:#111128;--bg3:#181830;--bg4:#20203d;--bg5:#282850;
+  --acc:#a855f7;--acc2:#7c3aed;--acc-g:rgba(168,85,247,.35);
+  --blue:#3b82f6;--blue-g:rgba(59,130,246,.35);
+  --t1:#eeeeff;--t2:#9898bb;--t3:#555577;
+  --green:#22d3a5;--red:#f43f5e;--gold:#f59e0b;
+  --bord:rgba(255,255,255,.055);
+  --fd:'Space Grotesk',sans-serif;--fb:'Inter',sans-serif;
+}
+html,body{height:100%;background:var(--bg0);color:var(--t1);font-family:var(--fb);overflow:hidden}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px}
+
+/* ── AUTH ── */
+#auth-screen{display:flex;align-items:center;justify-content:center;height:100vh;
+  background:radial-gradient(ellipse 80% 60% at 50% -10%,rgba(168,85,247,.18) 0%,transparent 70%),
+             radial-gradient(ellipse 60% 50% at 90% 90%,rgba(59,130,246,.12) 0%,transparent 60%),var(--bg0)}
+.auth-card{background:rgba(11,11,30,.85);border:1px solid rgba(168,85,247,.22);border-radius:28px;
+  padding:52px 44px;width:430px;backdrop-filter:blur(24px);
+  box-shadow:0 0 80px rgba(168,85,247,.12),0 0 160px rgba(59,130,246,.06),inset 0 1px 0 rgba(255,255,255,.06);
+  position:relative;overflow:hidden}
+.auth-card::before{content:'';position:absolute;top:-1px;left:20%;right:20%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(168,85,247,.7),transparent)}
+.auth-logo{font-family:var(--fd);font-size:42px;font-weight:800;text-align:center;margin-bottom:6px;
+  background:linear-gradient(135deg,#c084fc,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 24px rgba(168,85,247,.55));letter-spacing:-1.5px}
+.auth-sub{text-align:center;color:var(--t3);font-size:15px;margin-bottom:36px}
+.auth-tabs{display:flex;gap:6px;margin-bottom:28px;background:var(--bg3);padding:4px;border-radius:14px}
+.auth-tab{flex:1;padding:11px;border-radius:10px;border:none;background:transparent;
+  color:var(--t3);font-family:var(--fd);font-size:15px;font-weight:600;cursor:pointer;transition:all .2s}
+.auth-tab.active{background:var(--acc2);color:#fff;box-shadow:0 0 20px var(--acc-g)}
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:11px;font-weight:700;color:var(--t2);margin-bottom:7px;text-transform:uppercase;letter-spacing:.8px}
+.form-input{width:100%;padding:14px 16px;background:var(--bg3);border:1px solid var(--bord);
+  border-radius:12px;color:var(--t1);font-family:var(--fb);font-size:15px;outline:none;transition:all .2s}
+.form-input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-g)}
+.form-input::placeholder{color:var(--t3)}
+.btn-primary{width:100%;padding:14px;background:linear-gradient(135deg,var(--acc2),var(--blue));
+  border:none;border-radius:12px;color:#fff;font-family:var(--fd);font-size:16px;font-weight:700;
+  cursor:pointer;transition:all .2s;margin-top:6px;position:relative;overflow:hidden}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 30px rgba(168,85,247,.45)}
+.btn-primary:active{transform:translateY(0)}
+.err-msg{background:rgba(244,63,94,.13);border:1px solid rgba(244,63,94,.3);color:var(--red);
+  padding:12px 16px;border-radius:10px;font-size:14px;margin-top:12px}
+
+/* ── APP ── */
+#app{display:none;height:100vh;flex-direction:row}
+
+/* ── SERVER SIDEBAR ── */
+#ssb{width:70px;background:var(--bg1);display:flex;flex-direction:column;align-items:center;
+  padding:10px 0;gap:3px;border-right:1px solid var(--bord);overflow-y:auto;flex-shrink:0}
+.s-icon{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:var(--fd);font-size:18px;font-weight:700;cursor:pointer;transition:all .22s;
+  position:relative;flex-shrink:0;border:2px solid transparent;color:#fff;user-select:none;overflow:hidden}
+.s-icon img{width:100%;height:100%;object-fit:cover;border-radius:inherit}
+.s-icon:hover,.s-icon.active{border-radius:16px;box-shadow:0 0 22px var(--acc-g)}
+.s-icon.active{border-color:var(--acc)}
+.s-icon.dm-icon{background:linear-gradient(135deg,var(--acc2),var(--blue));font-size:20px}
+.sdivider{width:34px;height:1px;background:var(--bord);margin:4px 0;flex-shrink:0}
+.add-s{width:46px;height:46px;border-radius:50%;background:var(--bg3);border:2px dashed var(--t3);
+  color:var(--t3);font-size:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .22s;flex-shrink:0;line-height:1}
+.add-s:hover{border-radius:16px;border-color:var(--green);color:var(--green);box-shadow:0 0 22px rgba(34,211,165,.3)}
+
+/* ── PANEL ── */
+#panel{width:238px;background:var(--bg2);display:flex;flex-direction:column;border-right:1px solid var(--bord);overflow:hidden;flex-shrink:0}
+#panel-hdr{padding:16px 14px 12px;border-bottom:1px solid var(--bord);flex-shrink:0}
+.panel-title{font-family:var(--fd);font-size:17px;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:8px}
+#panel-list{flex:1;overflow-y:auto;padding:6px}
+.psec{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.9px;
+  padding:10px 8px 4px;display:flex;align-items:center;justify-content:space-between}
+.pitem{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:8px;cursor:pointer;
+  transition:all .14s;color:var(--t2);font-size:15px;font-weight:500}
+.pitem:hover{background:var(--bg3);color:var(--t1)}
+.pitem.active{background:rgba(168,85,247,.16);color:var(--acc)}
+.pitem-ico{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;overflow:hidden}
+.pitem-ico img{width:100%;height:100%;object-fit:cover}
+.hash{color:var(--t3);font-size:17px;font-weight:600;flex-shrink:0}
+#user-card{padding:9px 10px;background:var(--bg1);border-top:1px solid var(--bord);
+  display:flex;align-items:center;gap:9px;flex-shrink:0;cursor:pointer;transition:background .2s}
+#user-card:hover{background:var(--bg3)}
+.uav{width:33px;height:33px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:var(--fd);font-size:14px;font-weight:700;flex-shrink:0;overflow:hidden;position:relative}
+.uav img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.uname{font-family:var(--fd);font-size:14px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ustatus{font-size:11px;color:var(--green)}
+.ib{background:transparent;border:none;color:var(--t3);cursor:pointer;font-size:18px;
+  padding:3px;transition:color .2s;display:flex;align-items:center;justify-content:center}
+.ib:hover{color:var(--acc)}
+
+/* ── CHAT ── */
+#chat-area{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg0);min-width:0}
+#chat-hdr{padding:0 20px;height:52px;border-bottom:1px solid var(--bord);display:flex;align-items:center;
+  gap:12px;flex-shrink:0;background:rgba(6,6,15,.8);backdrop-filter:blur(12px)}
+.chat-title{font-family:var(--fd);font-size:19px;font-weight:700;color:var(--t1)}
+#msgs{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:1px}
+
+/* ── MESSAGES ── */
+.mg{display:flex;gap:13px;padding:5px 9px;border-radius:10px;transition:background .1s;animation:fadeUp .2s ease}
+.mg:hover{background:rgba(255,255,255,.022)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.mav{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:var(--fd);font-size:15px;font-weight:700;flex-shrink:0;margin-top:3px;overflow:hidden;cursor:pointer}
+.mav img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.mc{flex:1;min-width:0}
+.mhdr{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}
+.muser{font-family:var(--fd);font-size:16px;font-weight:700;cursor:pointer;transition:opacity .15s}
+.muser:hover{opacity:.8}
+.mtime{font-size:11px;color:var(--t3)}
+.mtext{font-size:16px;color:var(--t1);line-height:1.55;word-break:break-word;white-space:pre-wrap}
+.mimg{max-width:380px;max-height:280px;border-radius:10px;margin-top:6px;cursor:zoom-in;display:block}
+.mfile{display:inline-flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--bord);
+  border-radius:10px;padding:11px 15px;margin-top:6px;text-decoration:none;color:var(--t1);font-size:14px;transition:all .2s}
+.mfile:hover{background:var(--bg4);border-color:var(--acc)}
+.mreacts{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.rbadge{background:var(--bg3);border:1px solid var(--bord);border-radius:100px;padding:3px 8px;
+  font-size:13px;cursor:pointer;transition:all .14s;display:flex;align-items:center;gap:4px;color:var(--t1)}
+.rbadge:hover{background:rgba(168,85,247,.18);border-color:var(--acc)}
+.radd{opacity:0;background:var(--bg3);border:1px solid var(--bord);border-radius:6px;padding:3px 7px;
+  font-size:13px;cursor:pointer;transition:all .14s;color:var(--t2)}
+.mg:hover .radd{opacity:1}
+
+/* ── INPUT ── */
+#input-area{padding:10px 18px 14px;flex-shrink:0}
+.inp-wrap{background:var(--bg3);border:1px solid var(--bord);border-radius:14px;
+  display:flex;align-items:flex-end;gap:7px;padding:10px 13px;transition:border-color .2s,box-shadow .2s}
+.inp-wrap:focus-within{border-color:rgba(168,85,247,.4);box-shadow:0 0 0 3px rgba(168,85,247,.1)}
+#msginput{flex:1;background:transparent;border:none;outline:none;color:var(--t1);
+  font-family:var(--fb);font-size:16px;resize:none;max-height:120px;min-height:24px;line-height:1.5}
+#msginput::placeholder{color:var(--t3)}
+.send-btn{background:var(--acc2);border:none;border-radius:9px;color:#fff;padding:7px 13px;
+  cursor:pointer;font-size:17px;transition:all .2s;display:flex;align-items:center}
+.send-btn:hover{background:var(--acc);box-shadow:0 0 16px var(--acc-g)}
+.typing{height:18px;padding:0 18px;font-size:12px;color:var(--t3);flex-shrink:0;margin-top:-6px}
+
+/* ── MEMBERS ── */
+#membpanel{width:238px;background:var(--bg2);border-left:1px solid var(--bord);
+  display:none;flex-direction:column;overflow:hidden;flex-shrink:0}
+#membhdr{padding:16px;font-family:var(--fd);font-size:13px;font-weight:700;
+  color:var(--t3);text-transform:uppercase;letter-spacing:.9px;border-bottom:1px solid var(--bord);flex-shrink:0}
+#memblist{overflow-y:auto;padding:6px 0;flex:1}
+.mitem{display:flex;align-items:center;gap:9px;padding:7px 14px;border-radius:8px;cursor:pointer;
+  transition:background .14s;margin:0 6px}
+.mitem:hover{background:var(--bg3)}
+.avwrap{position:relative;flex-shrink:0}
+.sdot{width:9px;height:9px;border-radius:50%;background:var(--green);
+  border:2px solid var(--bg2);position:absolute;bottom:0;right:0}
+
+/* ── WELCOME / FRIENDS ── */
+#welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;background:radial-gradient(ellipse 60% 50% at 50% 50%,rgba(168,85,247,.06) 0%,transparent 70%)}
+.wico{font-size:72px;filter:drop-shadow(0 0 36px rgba(168,85,247,.55))}
+.wtitle{font-family:var(--fd);font-size:32px;font-weight:800;
+  background:linear-gradient(135deg,#c084fc,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.wsub{color:var(--t3);font-size:16px}
+#friends-view{flex:1;overflow-y:auto;padding:28px}
+.ftabs{display:flex;gap:4px;margin-bottom:22px}
+.ftab{padding:8px 18px;border-radius:9px;border:none;background:transparent;
+  color:var(--t3);font-family:var(--fd);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.ftab.active{background:rgba(168,85,247,.16);color:var(--acc)}
+.fcard{display:flex;align-items:center;gap:14px;padding:13px 15px;background:var(--bg2);
+  border:1px solid var(--bord);border-radius:13px;margin-bottom:8px;transition:all .2s;cursor:pointer}
+.fcard:hover{background:var(--bg3);border-color:rgba(168,85,247,.28)}
+.fname{font-family:var(--fd);font-size:17px;font-weight:700}
+.fstatus{font-size:13px;color:var(--green)}
+.pcard{display:flex;align-items:center;gap:14px;padding:13px 15px;
+  background:rgba(168,85,247,.07);border:1px solid rgba(168,85,247,.18);border-radius:13px;margin-bottom:8px}
+.pac{display:flex;gap:7px;margin-left:auto}
+.abtn{width:32px;height:32px;border-radius:50%;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .2s}
+.abtn.ok{background:rgba(34,211,165,.18);color:var(--green)}.abtn.ok:hover{background:rgba(34,211,165,.3)}
+.abtn.no{background:rgba(244,63,94,.18);color:var(--red)}.abtn.no:hover{background:rgba(244,63,94,.3)}
+
+/* ── MODAL ── */
+.mov{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;z-index:1000}
+.modal{background:var(--bg2);border:1px solid rgba(168,85,247,.22);border-radius:22px;
+  padding:32px;width:420px;box-shadow:0 0 70px rgba(168,85,247,.16);position:relative;
+  animation:fadeUp .2s ease;max-height:90vh;overflow-y:auto}
+.modal.wide{width:520px}
+.mtitle{font-family:var(--fd);font-size:26px;font-weight:800;margin-bottom:20px;
+  background:linear-gradient(135deg,#c084fc,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.btn-sec{padding:10px 20px;background:var(--bg3);border:1px solid var(--bord);border-radius:10px;
+  color:var(--t1);font-family:var(--fd);font-size:15px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-sec:hover{background:var(--bg4);border-color:var(--acc)}
+.btn-danger{padding:10px 20px;background:rgba(244,63,94,.14);border:1px solid rgba(244,63,94,.3);border-radius:10px;
+  color:var(--red);font-family:var(--fd);font-size:15px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-danger:hover{background:rgba(244,63,94,.25)}
+.inv-box{background:var(--bg3);border:1px solid var(--bord);border-radius:10px;padding:12px 15px;
+  font-family:monospace;font-size:17px;color:var(--acc);display:flex;align-items:center;justify-content:space-between;margin-top:12px}
+.copybtn{background:transparent;border:none;color:var(--t3);cursor:pointer;font-size:17px;transition:color .2s}
+.copybtn:hover{color:var(--acc)}
+
+/* ── PROFILE CARD (modal) ── */
+.profile-banner{width:100%;height:110px;border-radius:14px;background:linear-gradient(135deg,var(--acc2),var(--blue));
+  position:relative;overflow:hidden;cursor:pointer;flex-shrink:0}
+.profile-banner img{width:100%;height:100%;object-fit:cover}
+.profile-banner-overlay{position:absolute;inset:0;background:rgba(0,0,0,0);display:flex;align-items:center;
+  justify-content:center;font-size:22px;transition:background .2s;opacity:0}
+.profile-banner:hover .profile-banner-overlay{background:rgba(0,0,0,.5);opacity:1}
+.profile-av-big{width:72px;height:72px;border-radius:50%;border:4px solid var(--bg2);
+  margin-top:-36px;margin-left:16px;position:relative;z-index:2;cursor:pointer;overflow:hidden;flex-shrink:0}
+.profile-av-big img,.profile-av-big .av-inner{width:100%;height:100%;object-fit:cover;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:26px;font-weight:800;color:#fff}
+.profile-av-overlay{position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,0);
+  display:flex;align-items:center;justify-content:center;font-size:18px;opacity:0;transition:all .2s}
+.profile-av-big:hover .profile-av-overlay{background:rgba(0,0,0,.55);opacity:1}
+
+/* ── INVITE PREVIEW (Discord style) ── */
+.inv-preview{border-radius:16px;overflow:hidden;border:1px solid var(--bord);background:var(--bg1)}
+.inv-banner{width:100%;height:90px;background:linear-gradient(135deg,var(--acc2),var(--blue));position:relative;overflow:hidden}
+.inv-banner img{width:100%;height:100%;object-fit:cover}
+.inv-body{padding:16px}
+.inv-srv-row{display:flex;align-items:center;gap:13px;margin-bottom:14px}
+.inv-srv-ico{width:52px;height:52px;border-radius:14px;border:3px solid var(--bg1);
+  margin-top:-30px;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--fd);font-size:20px;font-weight:800;color:#fff}
+.inv-srv-ico img{width:100%;height:100%;object-fit:cover}
+.inv-srv-name{font-family:var(--fd);font-size:20px;font-weight:800;color:var(--t1)}
+.inv-srv-desc{font-size:14px;color:var(--t2);margin-bottom:10px}
+.inv-stats{display:flex;gap:16px;margin-bottom:16px}
+.inv-stat{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--t2)}
+.inv-dot{width:8px;height:8px;border-radius:50%}
+
+/* ── BOOST ── */
+.boost-btn{display:flex;align-items:center;gap:8px;padding:11px 18px;background:rgba(245,158,11,.1);
+  border:1px solid rgba(245,158,11,.3);border-radius:12px;color:var(--gold);font-family:var(--fd);
+  font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;width:100%}
+.boost-btn:hover{background:rgba(245,158,11,.2);border-color:var(--gold);box-shadow:0 0 20px rgba(245,158,11,.2)}
+.boost-btn.boosted{background:rgba(245,158,11,.2);border-color:var(--gold)}
+.boost-bar-wrap{height:8px;background:var(--bg4);border-radius:100px;overflow:hidden;margin-top:8px}
+.boost-bar{height:100%;background:linear-gradient(90deg,var(--gold),#f97316);border-radius:100px;transition:width .6s}
+
+/* ── SERVER SETTINGS ── */
+.srv-banner-edit{width:100%;height:80px;border-radius:12px;overflow:hidden;
+  background:linear-gradient(135deg,var(--acc2),var(--blue));position:relative;cursor:pointer;margin-bottom:16px}
+.srv-banner-edit img{width:100%;height:100%;object-fit:cover}
+.srv-ico-edit{width:60px;height:60px;border-radius:14px;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:22px;font-weight:800;
+  color:#fff;cursor:pointer;position:relative;flex-shrink:0}
+.srv-ico-edit img{width:100%;height:100%;object-fit:cover}
+.edit-overlay{position:absolute;inset:0;background:rgba(0,0,0,0);display:flex;align-items:center;
+  justify-content:center;font-size:18px;transition:all .2s;opacity:0;border-radius:inherit}
+.srv-banner-edit:hover .edit-overlay,.srv-ico-edit:hover .edit-overlay{background:rgba(0,0,0,.55);opacity:1}
+
+/* ── EMOJI ── */
+.epick{position:absolute;bottom:calc(100% + 8px);right:0;background:var(--bg2);border:1px solid var(--bord);
+  border-radius:14px;padding:10px;display:grid;grid-template-columns:repeat(8,1fr);gap:3px;
+  box-shadow:0 12px 40px rgba(0,0,0,.45);z-index:100}
+.ebtn{background:transparent;border:none;font-size:21px;cursor:pointer;padding:4px;border-radius:6px;transition:background .1s;line-height:1}
+.ebtn:hover{background:var(--bg3)}
+.rmenu{position:fixed;background:var(--bg2);border:1px solid var(--bord);border-radius:13px;
+  padding:8px;display:grid;grid-template-columns:repeat(6,1fr);gap:3px;
+  box-shadow:0 10px 35px rgba(0,0,0,.45);z-index:200}
+
+/* ── TOAST ── */
+#toasts{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:9999}
+.toast{background:var(--bg3);border:1px solid var(--bord);border-radius:13px;padding:13px 18px;
+  font-size:14px;max-width:300px;box-shadow:0 8px 30px rgba(0,0,0,.3);animation:fadeUp .3s ease}
+.toast.ok{border-left:3px solid var(--green)}.toast.er{border-left:3px solid var(--red)}.toast.in{border-left:3px solid var(--acc)}
+
+/* ── LIGHTBOX ── */
+#lb{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;z-index:9000;cursor:zoom-out}
+#lb img{max-width:90vw;max-height:90vh;border-radius:10px}
+
+.pab{width:26px;height:26px;border-radius:6px;background:transparent;border:none;
+  color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:17px;transition:all .14s}
+.pab:hover{background:var(--bg4);color:var(--t1)}
+
+/* boost glow pulse */
+@keyframes boostPulse{0%,100%{box-shadow:0 0 8px rgba(245,158,11,.4)}50%{box-shadow:0 0 24px rgba(245,158,11,.8)}}
+.srv-boost-badge{animation:boostPulse 2s infinite;border-radius:8px}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">⚡ NexusChat</div>
+    <div class="auth-sub">Conecta con quien quieras. Sin límites.</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login')">Iniciar sesión</button>
+      <button class="auth-tab" onclick="switchTab('reg')">Registrarse</button>
+    </div>
+    <div id="login-form">
+      <div class="form-group"><label class="form-label">Usuario o Email</label>
+        <input class="form-input" id="li-user" type="text" placeholder="tu_usuario"></div>
+      <div class="form-group"><label class="form-label">Contraseña</label>
+        <input class="form-input" id="li-pass" type="password" placeholder="••••••••"></div>
+      <button class="btn-primary" onclick="doLogin()">Entrar →</button>
+    </div>
+    <div id="reg-form" style="display:none">
+      <div class="form-group"><label class="form-label">Nombre de usuario</label>
+        <input class="form-input" id="rg-user" type="text" placeholder="usuario_cool"></div>
+      <div class="form-group"><label class="form-label">Email</label>
+        <input class="form-input" id="rg-email" type="email" placeholder="tú@email.com"></div>
+      <div class="form-group"><label class="form-label">Contraseña</label>
+        <input class="form-input" id="rg-pass" type="password" placeholder="••••••••"></div>
+      <button class="btn-primary" onclick="doRegister()">Crear cuenta →</button>
+    </div>
+    <div id="auth-err" class="err-msg" style="display:none"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div id="ssb">
+    <div class="s-icon dm-icon active" id="dm-btn" title="Mensajes directos" onclick="showDMView()">💬</div>
+    <div class="sdivider"></div>
+    <div id="srv-list"></div>
+    <div class="sdivider"></div>
+    <div class="add-s" title="Servidor nuevo" onclick="showServerModal()">+</div>
+  </div>
+
+  <div id="panel">
+    <div id="panel-hdr">
+      <div class="panel-title" id="ptitle"><span>💬</span><span>Mensajes directos</span></div>
+    </div>
+    <div id="panel-list"></div>
+    <div id="user-card" onclick="showMyProfile()">
+      <div class="avwrap">
+        <div class="uav" id="my-av"></div>
+        <div class="sdot"></div>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="uname" id="my-uname">...</div>
+        <div class="ustatus">● En línea</div>
+      </div>
+      <button class="ib" onclick="event.stopPropagation();doLogout()" title="Salir">🚪</button>
+    </div>
+  </div>
+
+  <div id="chat-area">
+    <div id="welcome">
+      <div class="wico">⚡</div>
+      <div class="wtitle">Bienvenido a NexusChat</div>
+      <div class="wsub">Elige un canal o DM para chatear</div>
+    </div>
+    <div id="friends-view" style="display:none;flex-direction:column;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px">
+        <div style="font-family:var(--fd);font-size:30px;font-weight:800;background:linear-gradient(135deg,#c084fc,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent">👥 Amigos</div>
+        <button class="btn-primary" style="width:auto;padding:10px 20px" onclick="showAddFriend()">+ Añadir amigo</button>
+      </div>
+      <div class="ftabs">
+        <button class="ftab active" onclick="showFTab('all')">Todos</button>
+        <button class="ftab" onclick="showFTab('pending')">Pendientes <span id="pcnt" style="color:var(--acc)"></span></button>
+      </div>
+      <div id="flist"></div>
+    </div>
+    <div id="chat-view" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+      <div id="chat-hdr">
+        <span id="chdr-ico" style="font-size:20px">💬</span>
+        <span class="chat-title" id="chdr-title">canal</span>
+        <div style="flex:1"></div>
+        <button class="ib" id="memb-btn" onclick="toggleMembers()" title="Miembros">👥</button>
+        <button class="ib" id="inv-btn" onclick="showInvite()" title="Invitar" style="display:none">🔗</button>
+        <button class="ib" id="srv-set-btn" onclick="showServerSettings()" title="Configurar servidor" style="display:none">⚙️</button>
+      </div>
+      <div id="msgs"></div>
+      <div class="typing" id="typing"></div>
+      <div id="input-area">
+        <div id="upload-preview"></div>
+        <div class="inp-wrap">
+          <label class="ib" title="Adjuntar archivo" style="cursor:pointer">
+            📎<input type="file" id="finput" style="display:none" onchange="handleFile(event)">
+          </label>
+          <textarea id="msginput" placeholder="Escribe algo épico..." rows="1"
+            onkeydown="onKey(event)" oninput="onType();resize(this)"></textarea>
+          <div style="position:relative">
+            <button class="ib" onclick="toggleEmoji()">😊</button>
+            <div class="epick" id="epicker" style="display:none"></div>
+          </div>
+          <button class="send-btn" onclick="sendMsg()">➤</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="membpanel">
+    <div id="membhdr">Miembros</div>
+    <div id="memblist"></div>
+  </div>
+</div>
+
+<div id="modals"></div>
+<div id="toasts"></div>
+<div id="lb" onclick="closeLB()"><img id="lbimg" src="" alt=""></div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────
+const S = {
+  token: localStorage.getItem('nx_tok'), user: null,
+  servers: [], friends: [], pending: [],
+  srv: null, ch: null, dm: null,
+  messages: [], members: [],
+  socket: null, showMembers: true, uploadFile: null, typTimer: null
+};
+
+const EMOJIS = ['😀','😂','🥰','😎','🤩','😭','😤','🤔','👍','👎','❤️','🔥','💯','⚡','🎉','🎮','💻','🚀','✨','🌟','💜','💙','🖤','🎵','🎨','🏆','💎','🌈','⭐','🤝','👻','🎃','🥳','😈','🦾','🫡','💀','🫶'];
+
+// ─── INIT ────────────────────────────────────────────
+async function init() {
+  const ep = document.getElementById('epicker');
+  EMOJIS.forEach(e => { const b=document.createElement('button'); b.className='ebtn'; b.textContent=e; b.onclick=()=>insertEmoji(e); ep.appendChild(b); });
+  ['li-user','li-pass'].forEach(id => { const el=document.getElementById(id); if(el) el.addEventListener('keydown',ev=>{ if(ev.key==='Enter') doLogin(); }); });
+  ['rg-user','rg-email','rg-pass'].forEach(id => { const el=document.getElementById(id); if(el) el.addEventListener('keydown',ev=>{ if(ev.key==='Enter') doRegister(); }); });
+  if(S.token) {
+    const ok = await fetchMe();
+    if(ok) { showApp(); await Promise.all([loadServers(),loadFriends()]); connectSocket(); showDMView(); }
+    else { localStorage.removeItem('nx_tok'); S.token=null; }
+  }
+}
+
+async function fetchMe() {
+  try { const r=await api('GET','/api/me'); if(!r.ok) return false; S.user=await r.json(); return true; } catch { return false; }
+}
+
+// ─── API ─────────────────────────────────────────────
+async function api(method, url, body=null, isForm=false) {
+  const h = {}; if(S.token) h['Authorization']=`Bearer ${S.token}`;
+  if(!isForm && body) h['Content-Type']='application/json';
+  return fetch(url,{method,headers:h,body:body?(isForm?body:JSON.stringify(body)):null});
+}
+
+// ─── AUTH ─────────────────────────────────────────────
+function switchTab(t) {
+  document.querySelectorAll('.auth-tab').forEach((el,i)=>el.classList.toggle('active',(t==='login'&&i===0)||(t==='reg'&&i===1)));
+  document.getElementById('login-form').style.display=t==='login'?'block':'none';
+  document.getElementById('reg-form').style.display=t==='reg'?'block':'none';
+  document.getElementById('auth-err').style.display='none';
+}
+async function doLogin() {
+  const username=document.getElementById('li-user').value.trim(); const password=document.getElementById('li-pass').value;
+  if(!username||!password) return showAuthErr('Completa todos los campos');
+  const r=await api('POST','/api/login',{username,password}); const d=await r.json();
+  if(!r.ok) return showAuthErr(d.error||'Error');
+  S.token=d.token; S.user=d.user; localStorage.setItem('nx_tok',d.token);
+  showApp(); await Promise.all([loadServers(),loadFriends()]); connectSocket(); showDMView();
+}
+async function doRegister() {
+  const username=document.getElementById('rg-user').value.trim(); const email=document.getElementById('rg-email').value.trim(); const password=document.getElementById('rg-pass').value;
+  if(!username||!email||!password) return showAuthErr('Completa todos los campos');
+  if(password.length<6) return showAuthErr('Contraseña mínimo 6 caracteres');
+  const r=await api('POST','/api/register',{username,email,password}); const d=await r.json();
+  if(!r.ok) return showAuthErr(d.error||'Error');
+  S.token=d.token; S.user=d.user; localStorage.setItem('nx_tok',d.token);
+  showApp(); await Promise.all([loadServers(),loadFriends()]); connectSocket(); showDMView(); toast('¡Bienvenido! 🎉','ok');
+}
+function showAuthErr(m) { const el=document.getElementById('auth-err'); el.textContent=m; el.style.display='block'; }
+function doLogout() {
+  localStorage.removeItem('nx_tok'); S.token=null; S.user=null;
+  if(S.socket) S.socket.disconnect();
+  document.getElementById('app').style.display='none'; document.getElementById('auth-screen').style.display='flex';
+}
+
+// ─── APP ─────────────────────────────────────────────
+function showApp() {
+  document.getElementById('auth-screen').style.display='none'; document.getElementById('app').style.display='flex';
+  updateMyAvatarUI();
+  document.getElementById('my-uname').textContent=S.user.username;
+}
+function updateMyAvatarUI() {
+  const el=document.getElementById('my-av'); el.innerHTML='';
+  if(S.user.avatar_url) { const img=document.createElement('img'); img.src=S.user.avatar_url; el.appendChild(img); }
+  else { el.style.background=S.user.avatar_color; el.textContent=S.user.username[0].toUpperCase(); }
+}
+
+// ─── SOCKET ──────────────────────────────────────────
+function connectSocket() {
+  S.socket=io();
+  S.socket.on('connect',()=>S.socket.emit('authenticate',{token:S.token}));
+  S.socket.on('new_message',msg=>{ const isHere=(S.ch&&msg.channel_id===S.ch.id)||(S.dm&&msg.dm_room_id===[S.user.id,S.dm.id].sort().join('_')); if(isHere){ appendMsg(msg); scrollMsgs(); } });
+  S.socket.on('friend_request',d=>{ toast(`📨 ${d.from.username} quiere ser tu amigo!`,'in'); loadFriends(); });
+  S.socket.on('friend_accepted',d=>{ toast(`✅ ${d.friend.username} aceptó tu solicitud`,'ok'); loadFriends(); });
+  S.socket.on('user_typing',d=>{ const el=document.getElementById('typing'); el.textContent=`${d.username} está escribiendo...`; clearTimeout(S.typTimer); S.typTimer=setTimeout(()=>el.textContent='',3000); });
+  S.socket.on('reaction_update',d=>updateReacts(d.message_id,d.reactions));
+  S.socket.on('server_boosted',d=>{ if(S.srv&&d.server.id===S.srv.id){ S.srv=d.server; } });
+}
+
+// ─── AVATAR HELPER ───────────────────────────────────
+function renderAvatar(user, size=38, extraStyle='') {
+  if(user.avatar_url) return `<img src="${user.avatar_url}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;${extraStyle}" alt="">`;
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${user.avatar_color};display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:${Math.round(size*0.38)}px;font-weight:700;color:#fff;flex-shrink:0;${extraStyle}">${user.username[0].toUpperCase()}</div>`;
+}
+function renderServerIcon(srv, size=46, radius='50%', fontSize='18px') {
+  if(srv.icon_url) return `<img src="${srv.icon_url}" style="width:${size}px;height:${size}px;border-radius:${radius};object-fit:cover;" alt="">`;
+  return `<div style="width:${size}px;height:${size}px;border-radius:${radius};background:${srv.icon_color};display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:${fontSize};font-weight:700;color:#fff;">${srv.name[0].toUpperCase()}</div>`;
+}
+
+// ─── SERVERS ─────────────────────────────────────────
+async function loadServers() {
+  const r=await api('GET','/api/servers'); if(r.ok){ S.servers=await r.json(); renderServers(); }
+}
+function renderServers() {
+  const el=document.getElementById('srv-list'); el.innerHTML='';
+  S.servers.forEach(srv=>{
+    const d=document.createElement('div'); d.className='s-icon'; d.title=srv.name; d.dataset.sid=srv.id;
+    d.innerHTML=renderServerIcon(srv,46,'50%','18px');
+    d.onclick=()=>selectServer(srv); el.appendChild(d);
+  });
+}
+async function selectServer(srv) {
+  S.srv=srv; S.ch=null; S.dm=null;
+  document.querySelectorAll('.s-icon').forEach(e=>e.classList.remove('active'));
+  document.querySelector(`[data-sid="${srv.id}"]`)?.classList.add('active');
+  document.getElementById('dm-btn').classList.remove('active');
+  S.socket?.emit('join_server_room',{server_id:srv.id});
+  const r=await api('GET',`/api/servers/${srv.id}/channels`); const chs=await r.json();
+  document.getElementById('ptitle').innerHTML=`${renderServerIcon(srv,26,'6px','13px')}<span style="font-size:16px">${esc(srv.name)}</span>`;
+  const pl=document.getElementById('panel-list'); pl.innerHTML='';
+  // Boost section
+  const boostDiv=document.createElement('div'); boostDiv.style.padding='8px 8px 4px';
+  const alreadyBoosted=false; // will check live
+  boostDiv.innerHTML=`
+    <button class="boost-btn" id="boost-btn-panel" onclick="doBoost()">
+      <span>⚡</span><span>Boost — ${srv.boost_count} boosts</span>
+      <span style="margin-left:auto;font-size:12px;color:var(--t3)">${S.user.boost_count} disponibles</span>
+    </button>
+    <div class="boost-bar-wrap"><div class="boost-bar" style="width:${Math.min(100,(srv.boost_count/10)*100)}%"></div></div>`;
+  pl.appendChild(boostDiv);
+  const sec=document.createElement('div'); sec.className='psec';
+  sec.innerHTML=`<span>Canales</span><button class="pab" onclick="showCreateCh()" title="Nuevo canal">＋</button>`;
+  pl.appendChild(sec);
+  chs.forEach(ch=>{
+    const d=document.createElement('div'); d.className='pitem'; d.dataset.chid=ch.id;
+    d.innerHTML=`<span class="hash">#</span><span>${esc(ch.name)}</span>`;
+    d.onclick=()=>selectChannel(ch); pl.appendChild(d);
+  });
+  document.getElementById('inv-btn').style.display='flex';
+  document.getElementById('memb-btn').style.display='flex';
+  document.getElementById('srv-set-btn').style.display='flex';
+  loadMembers(srv.id); setView('welcome');
+}
+async function loadMembers(sid) {
+  const r=await api('GET',`/api/servers/${sid}/members`); if(r.ok){ S.members=await r.json(); renderMembers(); }
+}
+function renderMembers() {
+  const el=document.getElementById('memblist'); el.innerHTML='';
+  document.getElementById('membhdr').textContent=`Miembros — ${S.members.length}`;
+  S.members.forEach(m=>{
+    const d=document.createElement('div'); d.className='mitem';
+    d.innerHTML=`<div class="avwrap">${renderAvatar(m,32)}<div class="sdot"></div></div>
+      <div><div style="font-family:var(--fd);font-size:15px;font-weight:600;color:var(--t2)">${esc(m.username)}</div>
+      <div style="font-size:11px;color:var(--t3)">${m.role==='owner'?'👑 Dueño':'Miembro'}</div></div>`;
+    el.appendChild(d);
+  });
+  if(S.showMembers){ const p=document.getElementById('membpanel'); p.style.display='flex'; p.style.flexDirection='column'; }
+}
+async function selectChannel(ch) {
+  S.ch=ch; S.dm=null;
+  document.querySelectorAll('#panel-list .pitem').forEach(e=>e.classList.remove('active'));
+  document.querySelector(`[data-chid="${ch.id}"]`)?.classList.add('active');
+  document.getElementById('chdr-ico').textContent='#'; document.getElementById('chdr-title').textContent=ch.name;
+  S.socket?.emit('join_channel',{channel_id:ch.id});
+  const r=await api('GET',`/api/channels/${ch.id}/messages`); S.messages=await r.json();
+  renderMsgs(); setView('chat');
+}
+
+// ─── DMs ─────────────────────────────────────────────
+function showDMView() {
+  S.srv=null; S.ch=null;
+  document.querySelectorAll('.s-icon').forEach(e=>e.classList.remove('active'));
+  document.getElementById('dm-btn').classList.add('active');
+  document.getElementById('ptitle').innerHTML=`<span>💬</span><span>Mensajes directos</span>`;
+  const pl=document.getElementById('panel-list'); pl.innerHTML='';
+  const fb=document.createElement('div'); fb.className='pitem';
+  fb.innerHTML=`<span>👥</span><span>Amigos</span>`;
+  fb.onclick=()=>{ document.querySelectorAll('.pitem').forEach(e=>e.classList.remove('active')); fb.classList.add('active'); setView('friends'); renderFriends('all'); document.getElementById('membpanel').style.display='none'; ['inv-btn','srv-set-btn'].forEach(i=>document.getElementById(i).style.display='none'); };
+  pl.appendChild(fb);
+  const sec=document.createElement('div'); sec.className='psec'; sec.textContent='DMs'; pl.appendChild(sec);
+  S.friends.forEach(f=>{
+    const d=document.createElement('div'); d.className='pitem'; d.dataset.dmid=f.id;
+    d.innerHTML=`<div class="pitem-ico">${renderAvatar(f,28)}</div><span>${esc(f.username)}</span>`;
+    d.onclick=()=>openDM(f); pl.appendChild(d);
+  });
+  ['inv-btn','srv-set-btn'].forEach(i=>document.getElementById(i).style.display='none');
+  document.getElementById('membpanel').style.display='none';
+  setView('friends'); renderFriends('all');
+}
+async function openDM(friend) {
+  S.dm=friend; S.ch=null;
+  document.querySelectorAll('.pitem').forEach(e=>e.classList.remove('active'));
+  document.querySelector(`[data-dmid="${friend.id}"]`)?.classList.add('active');
+  document.getElementById('chdr-ico').innerHTML=renderAvatar(friend,24);
+  document.getElementById('chdr-title').textContent=friend.username;
+  const room=[S.user.id,friend.id].sort().join('_'); S.socket?.emit('join_dm',{room_id:room});
+  const r=await api('GET',`/api/dm/${friend.id}/messages`); S.messages=await r.json();
+  renderMsgs(); document.getElementById('membpanel').style.display='none';
+  ['inv-btn','srv-set-btn'].forEach(i=>document.getElementById(i).style.display='none');
+  setView('chat');
+}
+
+// ─── FRIENDS ─────────────────────────────────────────
+async function loadFriends() {
+  const r=await api('GET','/api/friends'); if(r.ok){ const d=await r.json(); S.friends=d.friends; S.pending=d.pending; const el=document.getElementById('pcnt'); if(el) el.textContent=S.pending.length>0?`(${S.pending.length})`:''; }
+}
+function renderFriends(tab) {
+  document.querySelectorAll('.ftab').forEach((t,i)=>t.classList.toggle('active',(tab==='all'&&i===0)||(tab==='pending'&&i===1)));
+  const c=document.getElementById('flist'); c.innerHTML='';
+  if(tab==='all') {
+    if(!S.friends.length){ c.innerHTML=`<div style="text-align:center;color:var(--t3);padding:50px 20px;font-size:16px;line-height:1.8">Sin amigos aún 😢<br>Añade a alguien arriba</div>`; return; }
+    S.friends.forEach(f=>{
+      const d=document.createElement('div'); d.className='fcard';
+      d.innerHTML=`<div class="avwrap">${renderAvatar(f,40)}<div class="sdot"></div></div>
+        <div><div class="fname">${esc(f.username)}</div><div class="fstatus">● En línea</div></div>
+        <button class="btn-sec" style="padding:8px 14px;font-size:13px;margin-left:auto" onclick='openDM(${JSON.stringify(f).replace(/'/g,"&#39;")})'>💬 DM</button>`;
+      c.appendChild(d);
+    });
+  } else {
+    if(!S.pending.length){ c.innerHTML=`<div style="text-align:center;color:var(--t3);padding:50px 20px;font-size:16px">Sin solicitudes pendientes ✅</div>`; return; }
+    S.pending.forEach(req=>{
+      const d=document.createElement('div'); d.className='pcard';
+      d.innerHTML=`${renderAvatar(req.user,40)}<div><div class="fname">${esc(req.user.username)}</div><div style="font-size:13px;color:var(--t3)">Solicitud entrante</div></div>
+        <div class="pac"><button class="abtn ok" onclick="acceptF('${req.friendship_id}')">✓</button><button class="abtn no" onclick="rejectF('${req.friendship_id}')">✗</button></div>`;
+      c.appendChild(d);
+    });
+  }
+}
+function showFTab(t){ renderFriends(t); }
+async function acceptF(fid){ const r=await api('POST',`/api/friends/accept/${fid}`); if(r.ok){ toast('Solicitud aceptada ✅','ok'); await loadFriends(); showDMView(); } }
+async function rejectF(fid){ const r=await api('POST',`/api/friends/reject/${fid}`); if(r.ok){ await loadFriends(); renderFriends('pending'); } }
+function showAddFriend(){
+  showModal(`<div class="mtitle">➕ Añadir amigo</div>
+    <p style="color:var(--t2);margin-bottom:18px;font-size:15px">Añade a alguien por su nombre de usuario.</p>
+    <div class="form-group"><label class="form-label">Nombre de usuario</label>
+      <input class="form-input" id="af-inp" type="text" placeholder="usuario_cool" autocomplete="off"></div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn-primary" style="flex:1" onclick="doAddFriend()">Enviar solicitud</button>
+      <button class="btn-sec" onclick="closeModal()">Cancelar</button>
+    </div>`);
+  setTimeout(()=>{ const el=document.getElementById('af-inp'); if(el){ el.focus(); el.addEventListener('keydown',e=>{ if(e.key==='Enter') doAddFriend(); }); } },80);
+}
+async function doAddFriend(){
+  const u=(document.getElementById('af-inp').value||'').trim(); if(!u) return;
+  const r=await api('POST','/api/friends/request',{username:u}); const d=await r.json();
+  if(!r.ok){ toast(d.error||'Error','er'); return; } closeModal(); toast(`Solicitud enviada a ${u} 📨`,'ok');
+}
+
+// ─── MESSAGES ────────────────────────────────────────
+function renderMsgs() { const c=document.getElementById('msgs'); c.innerHTML=''; S.messages.forEach(m=>appendMsg(m,false)); scrollMsgs(); }
+function appendMsg(msg,sc=true) {
+  const c=document.getElementById('msgs');
+  const isHere=(S.ch&&msg.channel_id===S.ch?.id)||(S.dm&&msg.dm_room_id===[S.user.id,S.dm.id].sort().join('_'));
+  if(!isHere) return;
+  const el=document.createElement('div'); el.className='mg'; el.dataset.mid=msg.id;
+  const sndr=msg.sender||{}; const time=new Date(msg.created_at).toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'});
+  let body='';
+  if(msg.content) body+=`<div class="mtext">${esc(msg.content)}</div>`;
+  if(msg.file_url){
+    const imgs=['jpg','jpeg','png','gif','webp','svg'];
+    if(imgs.includes(msg.file_type||'')) body+=`<img class="mimg" src="${msg.file_url}" alt="${esc(msg.file_name||'imagen')}" onclick="openLB('${msg.file_url}')">`;
+    else body+=`<a class="mfile" href="${msg.file_url}" download="${esc(msg.file_name||'archivo')}" target="_blank">📄 ${esc(msg.file_name||'Archivo')}</a>`;
+  }
+  el.innerHTML=`
+    <div class="mav" style="background:${sndr.avatar_color||'#7c3aed'}" onclick="showUserProfile(${JSON.stringify(sndr).replace(/"/g,'&quot;')})">
+      ${sndr.avatar_url?`<img src="${sndr.avatar_url}" style="width:38px;height:38px;border-radius:50%;object-fit:cover" alt="">`:`${(sndr.username||'?')[0].toUpperCase()}`}
+    </div>
+    <div class="mc">
+      <div class="mhdr">
+        <span class="muser" style="color:${sndr.avatar_color||'#a855f7'}" onclick="showUserProfile(${JSON.stringify(sndr).replace(/"/g,'&quot;')})">${esc(sndr.username||'?')}</span>
+        <span class="mtime">${time}</span>
+        <button class="radd" onclick="toggleRMenu(event,'${msg.id}')">😀+</button>
+      </div>${body}
+      <div class="mreacts" id="r-${msg.id}"></div>
+    </div>`;
+  if(msg.reactions) updateReacts(msg.id,msg.reactions);
+  c.appendChild(el); if(sc) scrollMsgs();
+}
+function updateReacts(mid,reactions){
+  const c=document.getElementById(`r-${mid}`); if(!c) return; c.innerHTML='';
+  Object.entries(reactions).forEach(([em,cnt])=>{ const b=document.createElement('button'); b.className='rbadge'; b.innerHTML=`${em} <span>${cnt}</span>`; b.onclick=()=>addReact(mid,em); c.appendChild(b); });
+}
+function scrollMsgs(){ const c=document.getElementById('msgs'); c.scrollTop=c.scrollHeight; }
+
+// ─── SEND ─────────────────────────────────────────────
+function sendMsg(){
+  const inp=document.getElementById('msginput'); const content=inp.value.trim();
+  if(!content&&!S.uploadFile) return;
+  const payload={token:S.token,content};
+  if(S.uploadFile){ payload.file_url=S.uploadFile.url; payload.file_name=S.uploadFile.name; payload.file_type=S.uploadFile.type; }
+  if(S.ch) payload.channel_id=S.ch.id;
+  else if(S.dm) payload.dm_room_id=[S.user.id,S.dm.id].sort().join('_');
+  S.socket?.emit('send_message',payload);
+  inp.value=''; inp.style.height='auto'; S.uploadFile=null; document.getElementById('upload-preview').innerHTML='';
+}
+function onKey(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendMsg(); } }
+function resize(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+function onType(){ if(!S.socket||(S.ch==null&&S.dm==null)) return; const room=S.ch?`channel_${S.ch.id}`:`dm_${[S.user.id,S.dm.id].sort().join('_')}`; S.socket.emit('typing',{token:S.token,room}); }
+
+// ─── FILE UPLOAD ──────────────────────────────────────
+async function handleFile(e){
+  const file=e.target.files[0]; if(!file) return;
+  const fd=new FormData(); fd.append('file',file); toast('Subiendo...','in');
+  const r=await api('POST','/api/upload',fd,true);
+  if(r.ok){
+    const d=await r.json(); S.uploadFile=d;
+    const pv=document.getElementById('upload-preview'); const imgs=['jpg','jpeg','png','gif','webp'];
+    pv.innerHTML=imgs.includes(d.type)?
+      `<div style="padding:6px 0;display:flex;align-items:center;gap:10px"><img src="${d.url}" style="height:55px;border-radius:8px"><span style="font-size:13px;color:var(--t2)">${esc(d.name)}</span><button onclick="cancelUp()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px">✕</button></div>`:
+      `<div style="padding:6px 0;display:flex;align-items:center;gap:10px"><span style="font-size:22px">📄</span><span style="font-size:13px;color:var(--t2)">${esc(d.name)}</span><button onclick="cancelUp()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px">✕</button></div>`;
+    toast('Listo ✅','ok');
+  } else toast('Error al subir','er');
+  e.target.value='';
+}
+function cancelUp(){ S.uploadFile=null; document.getElementById('upload-preview').innerHTML=''; }
+
+// ─── REACTIONS ───────────────────────────────────────
+function toggleRMenu(e,mid){
+  e.stopPropagation(); document.querySelectorAll('.rmenu').forEach(m=>m.remove());
+  const menu=document.createElement('div'); menu.className='rmenu';
+  EMOJIS.slice(0,18).forEach(em=>{ const b=document.createElement('button'); b.className='ebtn'; b.textContent=em; b.onclick=ev=>{ ev.stopPropagation(); addReact(mid,em); menu.remove(); }; menu.appendChild(b); });
+  const rect=e.target.getBoundingClientRect(); menu.style.left=rect.left+'px'; menu.style.top=(rect.bottom+4)+'px';
+  document.body.appendChild(menu); setTimeout(()=>document.addEventListener('click',()=>menu.remove(),{once:true}),10);
+}
+async function addReact(mid,emoji){ await api('POST',`/api/messages/${mid}/react`,{emoji}); }
+
+// ─── EMOJI ───────────────────────────────────────────
+function toggleEmoji(){ const ep=document.getElementById('epicker'); ep.style.display=ep.style.display==='none'?'grid':'none'; }
+function insertEmoji(e){ const inp=document.getElementById('msginput'); const p=inp.selectionStart; inp.value=inp.value.slice(0,p)+e+inp.value.slice(p); inp.selectionStart=inp.selectionEnd=p+e.length; inp.focus(); document.getElementById('epicker').style.display='none'; }
+document.addEventListener('click',e=>{ const ep=document.getElementById('epicker'); if(ep&&!ep.contains(e.target)&&!e.target.closest('[onclick="toggleEmoji()"]')) ep.style.display='none'; });
+
+// ─── MY PROFILE ──────────────────────────────────────
+function showMyProfile(){
+  const u=S.user;
+  showModal(`
+    <div class="profile-banner" id="my-banner-el" onclick="triggerUpload('my-banner-inp')">
+      ${u.banner_url?`<img src="${u.banner_url}" alt="">`:`<div style="width:100%;height:100%;background:linear-gradient(135deg,${u.avatar_color},#3b82f6)"></div>`}
+      <div class="profile-banner-overlay">📷 Cambiar banner</div>
+      <input type="file" id="my-banner-inp" style="display:none" accept="image/*,.gif" onchange="uploadMyBanner(event)">
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:12px;margin-bottom:16px">
+      <div class="profile-av-big" id="my-av-big-el" onclick="triggerUpload('my-av-inp')">
+        ${u.avatar_url?`<img src="${u.avatar_url}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`:`<div class="av-inner" style="background:${u.avatar_color}">${u.username[0].toUpperCase()}</div>`}
+        <div class="profile-av-overlay">📷</div>
+        <input type="file" id="my-av-inp" style="display:none" accept="image/*,.gif" onchange="uploadMyAvatar(event)">
+      </div>
+      <div>
+        <div style="font-family:var(--fd);font-size:22px;font-weight:800;color:var(--t1)">${esc(u.username)}</div>
+        <div style="font-size:13px;color:var(--green)">● En línea</div>
+      </div>
+    </div>
+    <div style="background:var(--bg3);border-radius:12px;padding:14px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">SOBRE MÍ</div>
+      <textarea id="bio-inp" class="form-input" style="resize:none;height:70px;font-size:14px" placeholder="Cuéntale al mundo quién eres...">${esc(u.bio||'')}</textarea>
+    </div>
+    <div style="background:var(--bg3);border-radius:12px;padding:14px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">BOOSTS DISPONIBLES</div>
+      <div style="font-family:var(--fd);font-size:20px;color:var(--gold)">⚡ ${u.boost_count} boosts</div>
+      <div style="font-size:13px;color:var(--t3);margin-top:4px">Cada cuenta tiene 5 boosts gratis para gastar en servidores</div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn-primary" style="flex:1" onclick="saveMyBio()">Guardar</button>
+      <button class="btn-sec" onclick="closeModal()">Cerrar</button>
+    </div>`);
+}
+function triggerUpload(id){ document.getElementById(id)?.click(); }
+async function uploadMyAvatar(e){
+  const file=e.target.files[0]; if(!file) return;
+  const fd=new FormData(); fd.append('file',file); toast('Subiendo foto...','in');
+  const r=await api('POST','/api/me/avatar',fd,true);
+  if(r.ok){ S.user=await r.json(); updateMyAvatarUI(); closeModal(); showMyProfile(); toast('Foto actualizada ✅','ok'); }
+  else toast('Error al subir','er');
+}
+async function uploadMyBanner(e){
+  const file=e.target.files[0]; if(!file) return;
+  const fd=new FormData(); fd.append('file',file); toast('Subiendo banner...','in');
+  const r=await api('POST','/api/me/banner',fd,true);
+  if(r.ok){ S.user=await r.json(); closeModal(); showMyProfile(); toast('Banner actualizado ✅','ok'); }
+  else toast('Error al subir','er');
+}
+async function saveMyBio(){
+  const bio=document.getElementById('bio-inp').value;
+  const r=await api('PATCH','/api/me/profile',{bio}); if(r.ok){ S.user=await r.json(); toast('Perfil guardado ✅','ok'); closeModal(); }
+}
+
+// ─── USER PROFILE (others) ───────────────────────────
+function showUserProfile(user){
+  showModal(`
+    <div style="height:90px;border-radius:12px;overflow:hidden;margin-bottom:-45px;background:linear-gradient(135deg,${user.avatar_color},#1d4ed8)">
+      ${user.banner_url?`<img src="${user.banner_url}" style="width:100%;height:100%;object-fit:cover" alt="">`:''}
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:12px;margin-bottom:14px;padding:0 4px">
+      <div style="width:72px;height:72px;border-radius:50%;border:4px solid var(--bg2);overflow:hidden;flex-shrink:0;">
+        ${user.avatar_url?`<img src="${user.avatar_url}" style="width:100%;height:100%;object-fit:cover" alt="">`:`<div style="width:100%;height:100%;background:${user.avatar_color};display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:28px;font-weight:800;color:#fff">${(user.username||'?')[0].toUpperCase()}</div>`}
+      </div>
+      <div><div style="font-family:var(--fd);font-size:22px;font-weight:800">${esc(user.username||'')}</div>
+      <div style="font-size:13px;color:var(--green)">● En línea</div></div>
+    </div>
+    ${user.bio?`<div style="background:var(--bg3);border-radius:10px;padding:12px;font-size:14px;color:var(--t2);margin-bottom:14px">${esc(user.bio)}</div>`:''}
+    <button class="btn-sec" onclick="closeModal()" style="width:100%">Cerrar</button>`);
+}
+
+// ─── SERVER SETTINGS ─────────────────────────────────
+function showServerSettings(){
+  if(!S.srv) return;
+  const srv=S.srv; const isOwner=S.members.find(m=>m.id===S.user.id)?.role==='owner';
+  showModal(`
+    <div class="mtitle">⚙️ ${esc(srv.name)}</div>
+    <div class="srv-banner-edit" onclick="triggerUpload('srv-banner-inp')">
+      ${srv.banner_url?`<img src="${srv.banner_url}" alt="">`:`<div style="width:100%;height:100%;background:linear-gradient(135deg,${srv.icon_color},#1d4ed8)"></div>`}
+      <div class="edit-overlay">📷 Cambiar banner</div>
+      ${isOwner?`<input type="file" id="srv-banner-inp" style="display:none" accept="image/*,.gif" onchange="uploadSrvBanner(event)">`:''}
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+      <div class="srv-ico-edit" style="background:${srv.icon_color}" onclick="triggerUpload('srv-ico-inp')">
+        ${srv.icon_url?`<img src="${srv.icon_url}" alt="">`:`${srv.name[0].toUpperCase()}`}
+        <div class="edit-overlay">📷</div>
+        ${isOwner?`<input type="file" id="srv-ico-inp" style="display:none" accept="image/*,.gif" onchange="uploadSrvIcon(event)">`:''}
+      </div>
+      <div>
+        <div style="font-family:var(--fd);font-size:20px;font-weight:800">${esc(srv.name)}</div>
+        <div style="font-size:13px;color:var(--t3)">${srv.member_count} miembros</div>
+      </div>
+    </div>
+    ${isOwner?`
+    <div class="form-group"><label class="form-label">Nombre del servidor</label>
+      <input class="form-input" id="srv-name-inp" value="${esc(srv.name)}" maxlength="100"></div>
+    <div class="form-group"><label class="form-label">Descripción</label>
+      <textarea class="form-input" id="srv-desc-inp" style="resize:none;height:70px;font-size:14px" placeholder="Describe tu servidor...">${esc(srv.description||'')}</textarea></div>
+    `:''}
+    <div style="background:var(--bg3);border-radius:12px;padding:14px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">BOOSTS ⚡</div>
+      <div class="boost-bar-wrap" style="margin-bottom:8px"><div class="boost-bar" style="width:${Math.min(100,(srv.boost_count/10)*100)}%"></div></div>
+      <div style="font-family:var(--fd);font-size:22px;color:var(--gold)">⚡ ${srv.boost_count} boosts</div>
+    </div>
+    <div style="display:flex;gap:10px">
+      ${isOwner?`<button class="btn-primary" style="flex:1" onclick="saveSrvSettings()">Guardar</button>`:''}
+      <button class="btn-sec" onclick="closeModal()">Cerrar</button>
+    </div>`);
+}
+async function uploadSrvIcon(e){
+  const file=e.target.files[0]; if(!file||!S.srv) return;
+  const fd=new FormData(); fd.append('file',file); toast('Subiendo icono...','in');
+  const r=await api('POST',`/api/servers/${S.srv.id}/icon`,fd,true);
+  if(r.ok){ const d=await r.json(); S.srv=d; const idx=S.servers.findIndex(s=>s.id===d.id); if(idx>=0) S.servers[idx]=d; renderServers(); closeModal(); showServerSettings(); toast('Icono actualizado ✅','ok'); }
+  else toast('Error','er');
+}
+async function uploadSrvBanner(e){
+  const file=e.target.files[0]; if(!file||!S.srv) return;
+  const fd=new FormData(); fd.append('file',file); toast('Subiendo banner...','in');
+  const r=await api('POST',`/api/servers/${S.srv.id}/banner`,fd,true);
+  if(r.ok){ const d=await r.json(); S.srv=d; const idx=S.servers.findIndex(s=>s.id===d.id); if(idx>=0) S.servers[idx]=d; closeModal(); showServerSettings(); toast('Banner actualizado ✅','ok'); }
+  else toast('Error','er');
+}
+async function saveSrvSettings(){
+  const name=(document.getElementById('srv-name-inp')?.value||'').trim(); const desc=document.getElementById('srv-desc-inp')?.value||'';
+  if(!name||!S.srv) return;
+  const r=await api('PATCH',`/api/servers/${S.srv.id}`,{name,description:desc});
+  if(r.ok){ const d=await r.json(); S.srv=d; const idx=S.servers.findIndex(s=>s.id===d.id); if(idx>=0) S.servers[idx]=d; renderServers(); closeModal(); toast('Servidor actualizado ✅','ok'); }
+}
+
+// ─── BOOSTS ──────────────────────────────────────────
+async function doBoost(){
+  if(!S.srv) return;
+  const r=await api('POST',`/api/servers/${S.srv.id}/boost`); const d=await r.json();
+  if(!r.ok){ toast(d.error||'Error','er'); return; }
+  S.user.boost_count=d.user_boosts; S.srv.boost_count=d.server_boosts;
+  const idx=S.servers.findIndex(s=>s.id===S.srv.id); if(idx>=0) S.servers[idx].boost_count=d.server_boosts;
+  toast(d.boosted?`⚡ ¡Boost dado! Te quedan ${d.user_boosts}`:`Boost retirado. Tienes ${d.user_boosts}`, d.boosted?'ok':'in');
+  selectServer(S.srv); // refresh panel
+}
+
+// ─── SERVER MODALS ───────────────────────────────────
+function showServerModal(){
+  showModal(`<div class="mtitle">🚀 Servidores</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn-primary" onclick="showCreateSrv()">✨ Crear servidor</button>
+      <div style="text-align:center;color:var(--t3);font-size:13px">o</div>
+      <button class="btn-sec" onclick="showJoinSrv()">🔗 Unirse con código de invitación</button>
+    </div>`);
+}
+function showCreateSrv(){
+  showModal(`<div class="mtitle">✨ Crear servidor</div>
+    <div class="form-group"><label class="form-label">Nombre del servidor</label>
+      <input class="form-input" id="sname" type="text" placeholder="Mi servidor épico" maxlength="50"></div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn-primary" style="flex:1" onclick="doCreateSrv()">Crear</button>
+      <button class="btn-sec" onclick="closeModal()">Cancelar</button>
+    </div>`);
+  setTimeout(()=>document.getElementById('sname')?.focus(),80);
+}
+async function doCreateSrv(){
+  const name=(document.getElementById('sname').value||'').trim(); if(!name) return;
+  const r=await api('POST','/api/servers',{name}); if(r.ok){ const srv=await r.json(); S.servers.push(srv); renderServers(); closeModal(); toast(`Servidor "${name}" creado ✨`,'ok'); selectServer(srv); }
+}
+
+// ─── JOIN SERVER (invite preview like Discord) ───────
+function showJoinSrv(){
+  showModal(`<div class="mtitle">🔗 Unirse a servidor</div>
+    <div class="form-group"><label class="form-label">Código de invitación</label>
+      <input class="form-input" id="icode" type="text" placeholder="abc123xyz" oninput="previewInvite(this.value)"></div>
+    <div id="inv-preview-area" style="margin-top:12px"></div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn-primary" style="flex:1" id="join-btn" onclick="doJoinSrv()" disabled>Unirse</button>
+      <button class="btn-sec" onclick="closeModal()">Cancelar</button>
+    </div>`);
+  setTimeout(()=>document.getElementById('icode')?.focus(),80);
+}
+let previewTimer=null;
+async function previewInvite(code){
+  clearTimeout(previewTimer); const area=document.getElementById('inv-preview-area'); const btn=document.getElementById('join-btn');
+  if(!code||code.length<4){ area.innerHTML=''; btn.disabled=true; return; }
+  previewTimer=setTimeout(async()=>{
+    area.innerHTML=`<div style="color:var(--t3);font-size:13px;padding:8px 0">Buscando servidor...</div>`;
+    const r=await fetch(`/api/invite/${encodeURIComponent(code)}`); 
+    if(!r.ok){ area.innerHTML=`<div style="color:var(--red);font-size:13px;padding:8px 0">❌ Código inválido</div>`; btn.disabled=true; return; }
+    const srv=await r.json();
+    area.innerHTML=`<div class="inv-preview">
+      <div class="inv-banner">${srv.banner_url?`<img src="${srv.banner_url}" alt="">`:`<div style="width:100%;height:100%;background:linear-gradient(135deg,${srv.icon_color},#1d4ed8)"></div>`}</div>
+      <div class="inv-body">
+        <div class="inv-srv-row">
+          <div class="inv-srv-ico" style="background:${srv.icon_color}">${srv.icon_url?`<img src="${srv.icon_url}" alt="">`:`${srv.name[0].toUpperCase()}`}</div>
+          <div><div class="inv-srv-name">${esc(srv.name)}</div></div>
+        </div>
+        ${srv.description?`<div class="inv-srv-desc">${esc(srv.description)}</div>`:''}
+        <div class="inv-stats">
+          <div class="inv-stat"><div class="inv-dot" style="background:var(--green)"></div>${srv.member_count} miembros</div>
+          <div class="inv-stat"><div class="inv-dot" style="background:var(--gold)"></div>⚡ ${srv.boost_count} boosts</div>
+        </div>
+      </div>
+    </div>`;
+    btn.disabled=false;
+  },400);
+}
+async function doJoinSrv(){
+  const code=(document.getElementById('icode').value||'').trim(); if(!code) return;
+  const r=await api('POST',`/api/servers/join/${code}`); const d=await r.json();
+  if(!r.ok){ toast(d.error||'Código inválido','er'); return; }
+  S.servers.push(d); renderServers(); closeModal(); toast(`¡Unido a "${d.name}"! 🎉`,'ok'); selectServer(d);
+}
+
+function showInvite(){
+  if(!S.srv) return;
+  showModal(`<div class="mtitle">🔗 Invitar amigos</div>
+    <div class="inv-preview" style="margin-bottom:16px">
+      <div class="inv-banner">${S.srv.banner_url?`<img src="${S.srv.banner_url}" alt="">`:`<div style="width:100%;height:100%;background:linear-gradient(135deg,${S.srv.icon_color},#1d4ed8)"></div>`}</div>
+      <div class="inv-body">
+        <div class="inv-srv-row">
+          <div class="inv-srv-ico" style="background:${S.srv.icon_color}">${S.srv.icon_url?`<img src="${S.srv.icon_url}" alt="">`:`${S.srv.name[0].toUpperCase()}`}</div>
+          <div><div class="inv-srv-name">${esc(S.srv.name)}</div></div>
+        </div>
+        <div class="inv-stats">
+          <div class="inv-stat"><div class="inv-dot" style="background:var(--green)"></div>${S.srv.member_count} miembros</div>
+          <div class="inv-stat"><div class="inv-dot" style="background:var(--gold)"></div>⚡ ${S.srv.boost_count} boosts</div>
+        </div>
+      </div>
+    </div>
+    <p style="color:var(--t2);margin-bottom:10px;font-size:14px">Código de invitación:</p>
+    <div class="inv-box"><span id="inv-code">${S.srv.invite_code}</span><button class="copybtn" onclick="copyCode('${S.srv.invite_code}')">📋</button></div>
+    <button class="btn-sec" style="width:100%;margin-top:16px" onclick="closeModal()">Cerrar</button>`);
+}
+function copyCode(c){ navigator.clipboard.writeText(c); toast('Código copiado 📋','ok'); }
+
+function showCreateCh(){
+  showModal(`<div class="mtitle">+ Nuevo canal</div>
+    <div class="form-group"><label class="form-label">Nombre del canal</label>
+      <input class="form-input" id="chname" type="text" placeholder="general" maxlength="40"></div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn-primary" style="flex:1" onclick="doCreateCh()">Crear</button>
+      <button class="btn-sec" onclick="closeModal()">Cancelar</button>
+    </div>`);
+  setTimeout(()=>document.getElementById('chname')?.focus(),80);
+}
+async function doCreateCh(){
+  const name=(document.getElementById('chname').value||'').trim(); if(!name||!S.srv) return;
+  const r=await api('POST',`/api/servers/${S.srv.id}/channels`,{name});
+  if(r.ok){ closeModal(); selectServer(S.srv); toast(`Canal #${name} creado`,'ok'); }
+  else toast('Sin permisos para crear canales','er');
+}
+
+// ─── MEMBERS TOGGLE ──────────────────────────────────
+function toggleMembers(){
+  S.showMembers=!S.showMembers; const p=document.getElementById('membpanel');
+  if(S.srv&&S.showMembers){ p.style.display='flex'; p.style.flexDirection='column'; } else p.style.display='none';
+}
+
+// ─── VIEW ────────────────────────────────────────────
+function setView(v){
+  document.getElementById('welcome').style.display=v==='welcome'?'flex':'none';
+  const fv=document.getElementById('friends-view'); fv.style.display=v==='friends'?'flex':'none';
+  const cv=document.getElementById('chat-view');
+  if(v==='chat'){ cv.style.display='flex'; cv.style.flex='1'; cv.style.overflow='hidden'; } else cv.style.display='none';
+}
+
+// ─── MODAL ───────────────────────────────────────────
+function showModal(html){
+  closeModal(); const ov=document.createElement('div'); ov.className='mov'; ov.id='cur-modal';
+  ov.onclick=e=>{ if(e.target===ov) closeModal(); };
+  const m=document.createElement('div'); m.className='modal'; m.innerHTML=html;
+  ov.appendChild(m); document.getElementById('modals').appendChild(ov);
+}
+function closeModal(){ document.getElementById('cur-modal')?.remove(); }
+
+// ─── TOAST ───────────────────────────────────────────
+function toast(msg,type='in'){ const c=document.getElementById('toasts'); const el=document.createElement('div'); el.className=`toast ${type}`; el.textContent=msg; c.appendChild(el); setTimeout(()=>el.remove(),3500); }
+
+// ─── LIGHTBOX ────────────────────────────────────────
+function openLB(url){ document.getElementById('lbimg').src=url; document.getElementById('lb').style.display='flex'; }
+function closeLB(){ document.getElementById('lb').style.display='none'; }
+
+// ─── ESC ─────────────────────────────────────────────
+function esc(t){ return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+
+init();
+</script>
+</body>
+</html>
