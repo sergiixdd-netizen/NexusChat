@@ -1,0 +1,1516 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>NexusChat ⚡</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#06060f;--bg1:#0c0c1e;--bg2:#111128;--bg3:#181830;--bg4:#20203d;
+  --acc:#a855f7;--acc2:#7c3aed;--acc-g:rgba(168,85,247,.35);
+  --blue:#3b82f6;--t1:#eeeeff;--t2:#9898bb;--t3:#555577;
+  --green:#22d3a5;--red:#f43f5e;--gold:#f59e0b;
+  --bord:rgba(255,255,255,.055);
+  --fd:'Space Grotesk',sans-serif;--fb:'Inter',sans-serif;
+}
+html,body{height:100%;background:var(--bg0);color:var(--t1);font-family:var(--fb);overflow:hidden}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px}
+
+/* AUTH */
+#auth-screen{display:flex;align-items:center;justify-content:center;height:100vh;
+  background:radial-gradient(ellipse 80% 60% at 50% -10%,rgba(168,85,247,.2) 0%,transparent 70%),var(--bg0)}
+.auth-card{background:rgba(11,11,30,.9);border:1px solid rgba(168,85,247,.25);border-radius:28px;
+  padding:52px 44px;width:430px;backdrop-filter:blur(24px);position:relative;overflow:hidden}
+.auth-card::before{content:'';position:absolute;top:-1px;left:20%;right:20%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(168,85,247,.8),transparent)}
+.auth-logo{font-family:var(--fd);font-size:42px;font-weight:800;text-align:center;margin-bottom:6px;
+  background:linear-gradient(135deg,#c084fc,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-1.5px}
+.auth-sub{text-align:center;color:var(--t3);font-size:15px;margin-bottom:36px}
+.auth-tabs{display:flex;gap:6px;margin-bottom:28px;background:var(--bg3);padding:4px;border-radius:14px}
+.auth-tab{flex:1;padding:11px;border-radius:10px;border:none;background:transparent;
+  color:var(--t3);font-family:var(--fd);font-size:15px;font-weight:600;cursor:pointer;transition:all .2s}
+.auth-tab.active{background:var(--acc2);color:#fff}
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:11px;font-weight:700;color:var(--t2);margin-bottom:7px;text-transform:uppercase;letter-spacing:.8px}
+.form-input{width:100%;padding:14px 16px;background:var(--bg3);border:1px solid var(--bord);
+  border-radius:12px;color:var(--t1);font-family:var(--fb);font-size:15px;outline:none;transition:all .2s}
+.form-input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-g)}
+.form-input::placeholder{color:var(--t3)}
+.btn-primary{width:100%;padding:14px;background:linear-gradient(135deg,var(--acc2),var(--blue));
+  border:none;border-radius:12px;color:#fff;font-family:var(--fd);font-size:16px;font-weight:700;
+  cursor:pointer;transition:all .2s;margin-top:6px}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(168,85,247,.4)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.err-msg{background:rgba(244,63,94,.13);border:1px solid rgba(244,63,94,.3);color:var(--red);
+  padding:12px 16px;border-radius:10px;font-size:14px;margin-top:12px}
+
+/* APP */
+#app{display:none;height:100vh;flex-direction:row}
+
+/* SERVER SIDEBAR */
+#ssb{width:70px;background:var(--bg1);display:flex;flex-direction:column;align-items:center;
+  padding:10px 0;gap:3px;border-right:1px solid var(--bord);overflow-y:auto;flex-shrink:0}
+.s-icon{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:var(--fd);font-size:18px;font-weight:700;cursor:pointer;transition:all .22s;
+  position:relative;flex-shrink:0;border:2px solid transparent;color:#fff;overflow:hidden}
+.s-icon:hover,.s-icon.active{border-radius:16px;box-shadow:0 0 22px var(--acc-g)}
+.s-icon.active{border-color:var(--acc)}
+.s-icon.dm-icon{background:linear-gradient(135deg,var(--acc2),var(--blue));font-size:20px}
+.s-icon img{width:100%;height:100%;object-fit:cover}
+.verified-badge{position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;background:var(--green);
+  border-radius:50%;border:2px solid var(--bg1);display:flex;align-items:center;justify-content:center;font-size:8px}
+.sdivider{width:34px;height:1px;background:var(--bord);margin:4px 0;flex-shrink:0}
+.add-s{width:46px;height:46px;border-radius:50%;background:var(--bg3);border:2px dashed var(--t3);
+  color:var(--t3);font-size:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .22s;flex-shrink:0}
+.add-s:hover{border-radius:16px;border-color:var(--green);color:var(--green)}
+
+/* PANEL */
+#panel{width:240px;background:var(--bg2);display:flex;flex-direction:column;border-right:1px solid var(--bord);overflow:hidden;flex-shrink:0}
+#panel-banner{width:100%;height:80px;overflow:hidden;flex-shrink:0;display:none;position:relative}
+#panel-banner img{width:100%;height:100%;object-fit:cover}
+#panel-banner::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,var(--bg2))}
+#panel-hdr{padding:12px 14px 10px;border-bottom:1px solid var(--bord);flex-shrink:0}
+.panel-title{font-family:var(--fd);font-size:16px;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:8px}
+#panel-list{flex:1;overflow-y:auto;padding:6px}
+.psec{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.9px;
+  padding:10px 8px 4px;display:flex;align-items:center;justify-content:space-between}
+.pitem{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:8px;cursor:pointer;
+  transition:all .14s;color:var(--t2);font-size:14px;font-weight:500}
+.pitem:hover{background:var(--bg3);color:var(--t1)}
+.pitem.active{background:rgba(168,85,247,.16);color:var(--acc)}
+.pitem-ico{width:32px;height:32px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.pitem-ico img{width:100%;height:100%;object-fit:cover}
+.hash{color:var(--t3);font-size:16px;font-weight:600;flex-shrink:0}
+.dm-status-text{font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px}
+#user-card{padding:9px 10px;background:var(--bg1);border-top:1px solid var(--bord);
+  display:flex;align-items:center;gap:9px;flex-shrink:0;cursor:pointer;transition:background .2s}
+#user-card:hover{background:var(--bg3)}
+.uav{width:33px;height:33px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:var(--fd);font-size:14px;font-weight:700;flex-shrink:0;overflow:hidden}
+.uav img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.uname{font-family:var(--fd);font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.ustatus{font-size:11px;color:var(--green)}
+.ib{background:transparent;border:none;color:var(--t3);cursor:pointer;font-size:18px;
+  padding:3px;transition:color .2s;display:flex;align-items:center;justify-content:center}
+.ib:hover{color:var(--acc)}
+
+/* CHAT */
+#chat-area{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg0);min-width:0}
+#chat-hdr{padding:0 20px;height:52px;border-bottom:1px solid var(--bord);display:flex;align-items:center;
+  gap:12px;flex-shrink:0;background:rgba(6,6,15,.85);backdrop-filter:blur(12px)}
+.chat-title{font-family:var(--fd);font-size:18px;font-weight:700}
+#msgs{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:1px}
+.mg{display:flex;gap:13px;padding:5px 9px;border-radius:10px;transition:background .1s;animation:fadeUp .2s ease}
+.mg:hover{background:rgba(255,255,255,.022)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.mav{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:var(--fd);font-size:15px;font-weight:700;flex-shrink:0;margin-top:3px;overflow:hidden;cursor:pointer}
+.mav img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.mc{flex:1;min-width:0}
+.mhdr{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}
+.muser{font-family:var(--fd);font-size:16px;font-weight:700;cursor:pointer}
+.muser:hover{text-decoration:underline}
+.mtime{font-size:11px;color:var(--t3)}
+.mtext{font-size:16px;line-height:1.55;word-break:break-word;white-space:pre-wrap}
+.mimg{max-width:380px;max-height:280px;border-radius:10px;margin-top:6px;cursor:zoom-in;display:block}
+.mfile{display:inline-flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--bord);
+  border-radius:10px;padding:11px 15px;margin-top:6px;text-decoration:none;color:var(--t1);font-size:14px;transition:all .2s}
+.mfile:hover{background:var(--bg4);border-color:var(--acc)}
+.mreacts{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.rbadge{background:var(--bg3);border:1px solid var(--bord);border-radius:100px;padding:3px 8px;
+  font-size:13px;cursor:pointer;transition:all .14s;display:flex;align-items:center;gap:4px}
+.rbadge:hover{background:rgba(168,85,247,.18);border-color:var(--acc)}
+.radd{opacity:0;background:var(--bg3);border:1px solid var(--bord);border-radius:6px;padding:3px 7px;
+  font-size:13px;cursor:pointer;transition:all .14s;color:var(--t2)}
+.mg:hover .radd{opacity:1}
+
+/* INPUT */
+#input-area{padding:10px 18px 14px;flex-shrink:0}
+.inp-wrap{background:var(--bg3);border:1px solid var(--bord);border-radius:14px;
+  display:flex;align-items:flex-end;gap:7px;padding:10px 13px;transition:border-color .2s}
+.inp-wrap:focus-within{border-color:rgba(168,85,247,.4);box-shadow:0 0 0 3px rgba(168,85,247,.1)}
+#msginput{flex:1;background:transparent;border:none;outline:none;color:var(--t1);
+  font-family:var(--fb);font-size:16px;resize:none;max-height:120px;min-height:24px;line-height:1.5}
+#msginput::placeholder{color:var(--t3)}
+.send-btn{background:var(--acc2);border:none;border-radius:9px;color:#fff;padding:7px 13px;
+  cursor:pointer;font-size:17px;transition:all .2s}
+.send-btn:hover{background:var(--acc);box-shadow:0 0 16px var(--acc-g)}
+.typing{height:18px;padding:0 18px;font-size:12px;color:var(--t3);flex-shrink:0;margin-top:-6px}
+
+/* MEMBERS */
+#membpanel{width:240px;background:var(--bg2);border-left:1px solid var(--bord);
+  display:none;flex-direction:column;overflow:hidden;flex-shrink:0}
+#membhdr{padding:16px;font-family:var(--fd);font-size:13px;font-weight:700;
+  color:var(--t3);text-transform:uppercase;letter-spacing:.9px;border-bottom:1px solid var(--bord);flex-shrink:0}
+#memblist{overflow-y:auto;padding:6px 0;flex:1}
+.mitem{display:flex;align-items:center;gap:9px;padding:7px 14px;border-radius:8px;cursor:pointer;
+  transition:background .14s;margin:0 6px}
+.mitem:hover{background:var(--bg3)}
+.avwrap{position:relative;flex-shrink:0}
+.sdot{width:9px;height:9px;border-radius:50%;background:var(--green);border:2px solid var(--bg2);position:absolute;bottom:0;right:0}
+.membsec{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;padding:8px 20px 4px}
+.role-badge{display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:100px;font-size:11px;font-weight:700}
+
+/* WELCOME */
+#welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;background:radial-gradient(ellipse 60% 50% at 50% 50%,rgba(168,85,247,.06) 0%,transparent 70%)}
+.wico{font-size:72px}
+.wtitle{font-family:var(--fd);font-size:32px;font-weight:800;
+  background:linear-gradient(135deg,#c084fc,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.wsub{color:var(--t3);font-size:16px}
+
+/* FRIENDS */
+#friends-view{flex:1;overflow-y:auto;padding:28px;flex-direction:column;display:none}
+.ftabs{display:flex;gap:4px;margin-bottom:22px}
+.ftab{padding:8px 18px;border-radius:9px;border:none;background:transparent;
+  color:var(--t3);font-family:var(--fd);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.ftab.active{background:rgba(168,85,247,.16);color:var(--acc)}
+.fcard{display:flex;align-items:center;gap:14px;padding:13px 15px;background:var(--bg2);
+  border:1px solid var(--bord);border-radius:13px;margin-bottom:8px;transition:all .2s}
+.fcard:hover{background:var(--bg3);border-color:rgba(168,85,247,.28)}
+.fname{font-family:var(--fd);font-size:16px;font-weight:700}
+.fstatus{font-size:12px;color:var(--green)}
+.fstatus-line{font-size:12px;color:var(--t3);margin-top:2px;display:flex;align-items:center;gap:5px}
+.pcard{display:flex;align-items:center;gap:14px;padding:13px 15px;
+  background:rgba(168,85,247,.07);border:1px solid rgba(168,85,247,.18);border-radius:13px;margin-bottom:8px}
+.pac{display:flex;gap:7px;margin-left:auto}
+.abtn{width:32px;height:32px;border-radius:50%;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .2s}
+.abtn.ok{background:rgba(34,211,165,.18);color:var(--green)}.abtn.ok:hover{background:rgba(34,211,165,.3)}
+.abtn.no{background:rgba(244,63,94,.18);color:var(--red)}.abtn.no:hover{background:rgba(244,63,94,.3)}
+
+/* MODAL */
+.mov{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;z-index:1000}
+.modal{background:var(--bg2);border:1px solid rgba(168,85,247,.22);border-radius:22px;
+  padding:32px;width:440px;box-shadow:0 0 70px rgba(168,85,247,.16);
+  animation:fadeUp .2s ease;max-height:90vh;overflow-y:auto}
+.modal.wide{width:560px}
+.mtitle{font-family:var(--fd);font-size:24px;font-weight:800;margin-bottom:18px;
+  background:linear-gradient(135deg,#c084fc,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.btn-sec{padding:10px 20px;background:var(--bg3);border:1px solid var(--bord);border-radius:10px;
+  color:var(--t1);font-family:var(--fd);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-sec:hover{background:var(--bg4);border-color:var(--acc)}
+.btn-danger{padding:10px 20px;background:rgba(244,63,94,.14);border:1px solid rgba(244,63,94,.3);border-radius:10px;
+  color:var(--red);font-family:var(--fd);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-danger:hover{background:rgba(244,63,94,.25)}
+.inv-box{background:var(--bg3);border:1px solid var(--bord);border-radius:10px;padding:12px 15px;
+  font-family:monospace;font-size:17px;color:var(--acc);display:flex;align-items:center;justify-content:space-between;margin-top:12px}
+.copybtn{background:transparent;border:none;color:var(--t3);cursor:pointer;font-size:17px;transition:color .2s}
+.copybtn:hover{color:var(--acc)}
+
+/* PROFILE */
+.prof-banner{width:100%;height:110px;border-radius:14px;overflow:hidden;position:relative;cursor:pointer;background:linear-gradient(135deg,#7c3aed,#3b82f6)}
+.prof-banner img{width:100%;height:100%;object-fit:cover}
+.prof-overlay{position:absolute;inset:0;background:rgba(0,0,0,0);display:flex;align-items:center;
+  justify-content:center;font-size:18px;opacity:0;transition:all .2s;border-radius:inherit}
+.prof-banner:hover .prof-overlay,.prof-av-big:hover .prof-overlay,.edit-wrap:hover .prof-overlay{background:rgba(0,0,0,.55);opacity:1}
+.prof-av-big{width:72px;height:72px;border-radius:50%;border:4px solid var(--bg2);
+  margin-top:-36px;margin-left:16px;position:relative;z-index:2;cursor:pointer;overflow:hidden;flex-shrink:0}
+.prof-av-big img,.prof-av-big .av-inner{width:100%;height:100%;object-fit:cover;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:26px;font-weight:800;color:#fff}
+.edit-wrap{position:relative;cursor:pointer;overflow:hidden;border-radius:inherit}
+
+/* INVITE PREVIEW */
+.inv-preview{border-radius:16px;overflow:hidden;border:1px solid var(--bord);background:var(--bg1)}
+.inv-banner{width:100%;height:80px;position:relative;overflow:hidden;background:linear-gradient(135deg,var(--acc2),var(--blue))}
+.inv-banner img{width:100%;height:100%;object-fit:cover}
+.inv-body{padding:14px}
+.inv-srv-row{display:flex;align-items:center;gap:13px;margin-bottom:10px}
+.inv-ico{width:52px;height:52px;border-radius:14px;border:3px solid var(--bg1);margin-top:-26px;
+  overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:20px;font-weight:800;color:#fff}
+.inv-ico img{width:100%;height:100%;object-fit:cover}
+.inv-name{font-family:var(--fd);font-size:20px;font-weight:800}
+.inv-stats{display:flex;gap:16px}
+.inv-stat{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--t2)}
+.inv-dot{width:8px;height:8px;border-radius:50%}
+
+/* BOOST */
+.boost-btn{display:flex;align-items:center;gap:8px;padding:9px 12px;background:rgba(245,158,11,.1);
+  border:1px solid rgba(245,158,11,.25);border-radius:10px;color:var(--gold);
+  font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;width:100%}
+.boost-btn:hover{background:rgba(245,158,11,.2)}
+.boost-bar-wrap{height:5px;background:var(--bg4);border-radius:100px;overflow:hidden;margin-top:5px}
+.boost-bar{height:100%;background:linear-gradient(90deg,var(--gold),#f97316);border-radius:100px;transition:width .6s}
+
+/* STATUS CARD */
+.status-card{background:var(--bg3);border:1px solid var(--bord);border-radius:12px;
+  padding:11px 13px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.status-img{width:42px;height:42px;border-radius:8px;object-fit:cover;flex-shrink:0}
+.status-time{font-size:11px;color:var(--t3);margin-top:2px}
+
+/* ROLES */
+.role-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);
+  border-radius:10px;margin-bottom:6px;border:1px solid var(--bord)}
+.role-color-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+.ricon-btn{width:28px;height:28px;border-radius:7px;background:transparent;border:1px solid var(--bord);
+  color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .14s}
+.ricon-btn:hover{background:var(--bg4);color:var(--t1)}
+.color-swatch{width:26px;height:26px;border-radius:8px;border:2px solid transparent;cursor:pointer;transition:all .14s;flex-shrink:0}
+.color-swatch:hover,.color-swatch.sel{border-color:#fff;transform:scale(1.1)}
+
+/* CALL */
+.call-overlay{position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:5000;
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+.call-overlay.show{display:flex}
+.call-av{width:100px;height:100px;border-radius:50%;border:4px solid var(--acc);
+  display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:800;
+  font-family:var(--fd);overflow:hidden;animation:callPulse 2s infinite}
+.call-av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+@keyframes callPulse{0%,100%{box-shadow:0 0 0 0 rgba(168,85,247,.5)}50%{box-shadow:0 0 0 20px rgba(168,85,247,0)}}
+.call-name{font-family:var(--fd);font-size:28px;font-weight:800}
+.call-stat{font-size:16px;color:var(--t2)}
+.call-btns{display:flex;gap:16px;margin-top:16px}
+.call-btn{width:64px;height:64px;border-radius:50%;border:none;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.call-btn.end{background:var(--red)}.call-btn.accept{background:var(--green)}.call-btn.mute{background:var(--bg3)}
+
+/* EMOJI */
+.epick{position:absolute;bottom:calc(100% + 8px);right:0;background:var(--bg2);border:1px solid var(--bord);
+  border-radius:14px;padding:10px;display:grid;grid-template-columns:repeat(8,1fr);gap:3px;
+  box-shadow:0 12px 40px rgba(0,0,0,.5);z-index:100;display:none}
+.ebtn{background:transparent;border:none;font-size:21px;cursor:pointer;padding:4px;border-radius:6px;line-height:1}
+.ebtn:hover{background:var(--bg3)}
+.rmenu{position:fixed;background:var(--bg2);border:1px solid var(--bord);border-radius:13px;
+  padding:8px;display:grid;grid-template-columns:repeat(6,1fr);gap:3px;z-index:200}
+
+/* TOAST */
+#toasts{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:9999}
+.toast{background:var(--bg3);border:1px solid var(--bord);border-radius:13px;padding:13px 18px;
+  font-size:14px;max-width:300px;animation:fadeUp .3s ease}
+.toast.ok{border-left:3px solid var(--green)}.toast.er{border-left:3px solid var(--red)}.toast.in{border-left:3px solid var(--acc)}
+
+/* LIGHTBOX */
+#lb{position:fixed;inset:0;background:rgba(0,0,0,.93);display:none;align-items:center;justify-content:center;z-index:9000;cursor:zoom-out}
+#lb img{max-width:90vw;max-height:90vh;border-radius:10px}
+
+.pab{width:26px;height:26px;border-radius:6px;background:transparent;border:none;
+  color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:17px}
+.pab:hover{background:var(--bg4);color:var(--t1)}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">⚡ NexusChat</div>
+    <div class="auth-sub">Conecta con quien quieras.</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login')">Iniciar sesión</button>
+      <button class="auth-tab" onclick="switchTab('reg')">Registrarse</button>
+    </div>
+    <div id="login-form">
+      <div class="form-group">
+        <label class="form-label">Usuario o Email</label>
+        <input class="form-input" id="li-user" type="text" placeholder="tu_usuario" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contraseña</label>
+        <input class="form-input" id="li-pass" type="password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="btn-primary" id="login-btn" onclick="doLogin()">Entrar →</button>
+    </div>
+    <div id="reg-form" style="display:none">
+      <div class="form-group">
+        <label class="form-label">Nombre de usuario</label>
+        <input class="form-input" id="rg-user" type="text" placeholder="usuario_cool" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" id="rg-email" type="email" placeholder="tú@email.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contraseña</label>
+        <input class="form-input" id="rg-pass" type="password" placeholder="••••••••" autocomplete="new-password">
+      </div>
+      <button class="btn-primary" id="reg-btn" onclick="doRegister()">Crear cuenta →</button>
+    </div>
+    <div id="auth-err" class="err-msg" style="display:none"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <!-- Server sidebar -->
+  <div id="ssb">
+    <div class="s-icon dm-icon active" id="dm-btn" title="Mensajes directos" onclick="showDMView()">💬</div>
+    <div class="sdivider"></div>
+    <div id="srv-list"></div>
+    <div class="sdivider"></div>
+    <div class="add-s" title="Nuevo servidor" onclick="showServerModal()">+</div>
+  </div>
+
+  <!-- Panel -->
+  <div id="panel">
+    <div id="panel-banner"><img id="panel-banner-img" src="" alt=""></div>
+    <div id="panel-hdr">
+      <div class="panel-title" id="ptitle"><span>💬</span><span>Mensajes directos</span></div>
+    </div>
+    <div id="panel-list"></div>
+    <div id="user-card" onclick="showMyProfile()">
+      <div class="avwrap">
+        <div class="uav" id="my-av"></div>
+        <div class="sdot"></div>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="uname" id="my-uname">...</div>
+        <div class="ustatus" id="my-status-line">● En línea</div>
+      </div>
+      <button class="ib" title="Salir" onclick="event.stopPropagation();doLogout()">🚪</button>
+    </div>
+  </div>
+
+  <!-- Chat -->
+  <div id="chat-area">
+    <div id="welcome">
+      <div class="wico">⚡</div>
+      <div class="wtitle">Bienvenido a NexusChat</div>
+      <div class="wsub">Elige un canal o DM</div>
+    </div>
+    <div id="friends-view">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px">
+        <div style="font-family:var(--fd);font-size:28px;font-weight:800;background:linear-gradient(135deg,#c084fc,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent">👥 Amigos</div>
+        <button class="btn-primary" style="width:auto;padding:9px 18px" onclick="showAddFriend()">+ Añadir amigo</button>
+      </div>
+      <div class="ftabs">
+        <button class="ftab active" onclick="showFTab('all')">Todos</button>
+        <button class="ftab" onclick="showFTab('pending')">Pendientes <span id="pcnt" style="color:var(--acc)"></span></button>
+      </div>
+      <div id="flist"></div>
+    </div>
+    <div id="chat-view" style="display:none;flex:1;flex-direction:column;overflow:hidden">
+      <div id="chat-hdr">
+        <span id="chdr-ico" style="font-size:20px">#</span>
+        <span class="chat-title" id="chdr-title">canal</span>
+        <div style="flex:1"></div>
+        <button class="ib" id="call-btn" title="Llamar" style="display:none" onclick="startCall()">📞</button>
+        <button class="ib" id="memb-btn" title="Miembros" onclick="toggleMembers()">👥</button>
+        <button class="ib" id="inv-btn" title="Invitar" style="display:none" onclick="showInvite()">🔗</button>
+        <button class="ib" id="srv-set-btn" title="Configuración" style="display:none" onclick="showServerSettings()">⚙️</button>
+        <button class="ib" id="verify-btn" title="Verificar (Xokram)" style="display:none" onclick="verifyServer()">✅</button>
+      </div>
+      <div id="msgs"></div>
+      <div class="typing" id="typing"></div>
+      <div id="input-area">
+        <div id="upload-preview"></div>
+        <div class="inp-wrap">
+          <label class="ib" style="cursor:pointer" title="Adjuntar">
+            📎<input type="file" id="finput" style="display:none" onchange="handleFile(event)">
+          </label>
+          <textarea id="msginput" placeholder="Escribe algo épico..." rows="1"
+            onkeydown="onKey(event)" oninput="onType();resizeTa(this)"></textarea>
+          <div style="position:relative">
+            <button class="ib" onclick="toggleEmoji()">😊</button>
+            <div class="epick" id="epicker"></div>
+          </div>
+          <button class="send-btn" onclick="sendMsg()">➤</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Members panel -->
+  <div id="membpanel">
+    <div id="membhdr">Miembros</div>
+    <div id="memblist"></div>
+  </div>
+</div>
+
+<!-- Call overlay -->
+<div class="call-overlay" id="call-overlay">
+  <div class="call-av" id="call-av-el"></div>
+  <div class="call-name" id="call-name-el">...</div>
+  <div class="call-stat" id="call-stat-el">Llamando...</div>
+  <div id="call-timer-el" style="font-family:monospace;font-size:20px;color:var(--t2);display:none">0:00</div>
+  <div class="call-btns" id="call-btns-el"></div>
+</div>
+
+<div id="modals"></div>
+<div id="toasts"></div>
+<div id="lb" onclick="closeLB()"><img id="lbimg" src="" alt=""></div>
+
+<script>
+'use strict';
+// ── STATE ─────────────────────────────────────────────────────────────────────
+const S = {
+  token: localStorage.getItem('nx_tok'),
+  user: null, servers: [], friends: [], pending: [],
+  srv: null, ch: null, dm: null,
+  messages: [], members: [],
+  socket: null, showMembers: true, uploadFile: null, typTimer: null,
+  callPeer: null, callId: null, callTimer: null, callSec: 0, rtcPc: null
+};
+
+const EMOJIS = ['😀','😂','🥰','😎','🤩','😭','😤','🤔','👍','👎','❤️','🔥','💯','⚡','🎉','🎮','💻','🚀','✨','🌟','💜','💙','🖤','🎵','🏆','💎','🌈','⭐','🤝','👻','😈','💀'];
+const RCOLS = ['#7c3aed','#2563eb','#dc2626','#059669','#d97706','#db2777','#0891b2','#ea580c','#65a30d','#8b5cf6','#06b6d4','#f43f5e','#99aab5'];
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function esc(t) { return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+function toast(msg, type) {
+  var c = document.getElementById('toasts');
+  var el = document.createElement('div');
+  el.className = 'toast ' + (type||'in');
+  el.textContent = msg;
+  c.appendChild(el);
+  setTimeout(function(){ el.remove(); }, 3500);
+}
+function timeAgo(iso) {
+  var diff = Date.now() - new Date(iso).getTime();
+  var m = Math.floor(diff/60000), h = Math.floor(m/60);
+  if(m < 1) return 'ahora';
+  if(m < 60) return 'hace ' + m + 'm';
+  if(h < 24) return 'hace ' + h + 'h';
+  return 'hace ' + Math.floor(h/24) + 'd';
+}
+function ge(id) { return document.getElementById(id); }
+function showAuthErr(m) { ge('auth-err').textContent = m; ge('auth-err').style.display = 'block'; }
+function openLB(url) { ge('lbimg').src = url; ge('lb').style.display = 'flex'; }
+function closeLB() { ge('lb').style.display = 'none'; }
+
+// ── AVATAR HELPERS ─────────────────────────────────────────────────────────────
+function avatarHtml(user, size) {
+  size = size || 38;
+  if(!user) return '';
+  if(user.avatar_url) {
+    return '<img src="' + user.avatar_url + '" style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;object-fit:cover;" alt="">';
+  }
+  var fs = Math.round(size * 0.38);
+  return '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + (user.avatar_color||'#7c3aed') + ';display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:' + fs + 'px;font-weight:700;color:#fff;flex-shrink:0;">' + (user.username||'?')[0].toUpperCase() + '</div>';
+}
+function srvIconHtml(srv, size, radius) {
+  size = size || 46; radius = radius || '50%';
+  if(srv.icon_url) return '<img src="' + srv.icon_url + '" style="width:' + size + 'px;height:' + size + 'px;border-radius:' + radius + ';object-fit:cover;" alt="">';
+  var fs = Math.round(size * 0.38);
+  return '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:' + radius + ';background:' + srv.icon_color + ';display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:' + fs + 'px;font-weight:700;color:#fff;">' + srv.name[0].toUpperCase() + '</div>';
+}
+
+// ── API ────────────────────────────────────────────────────────────────────────
+async function api(method, url, body, isForm) {
+  var h = {};
+  if(S.token) h['Authorization'] = 'Bearer ' + S.token;
+  if(!isForm && body) h['Content-Type'] = 'application/json';
+  var opts = { method: method, headers: h };
+  if(body) opts.body = isForm ? body : JSON.stringify(body);
+  var r = await fetch(url, opts);
+  return r;
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+async function init() {
+  // Build emoji picker
+  var ep = ge('epicker');
+  EMOJIS.forEach(function(e) {
+    var b = document.createElement('button');
+    b.className = 'ebtn'; b.textContent = e;
+    b.addEventListener('click', function(){ insertEmoji(e); });
+    ep.appendChild(b);
+  });
+  // Enter key on inputs
+  ['li-user','li-pass'].forEach(function(id) {
+    var el = ge(id); if(el) el.addEventListener('keydown', function(ev){ if(ev.key==='Enter') doLogin(); });
+  });
+  ['rg-user','rg-email','rg-pass'].forEach(function(id) {
+    var el = ge(id); if(el) el.addEventListener('keydown', function(ev){ if(ev.key==='Enter') doRegister(); });
+  });
+  // Close emoji picker on outside click
+  document.addEventListener('click', function(e) {
+    var ep = ge('epicker');
+    if(ep && !ep.contains(e.target) && e.target.getAttribute('onclick') !== 'toggleEmoji()') {
+      ep.style.display = 'none';
+    }
+  });
+  if(S.token) {
+    try {
+      var ok = await fetchMe();
+      if(ok) {
+        showApp();
+        await loadServers();
+        await loadFriends();
+        connectSocket();
+        showDMView();
+      } else {
+        localStorage.removeItem('nx_tok');
+        S.token = null;
+      }
+    } catch(e) {
+      console.error('Init error:', e);
+      localStorage.removeItem('nx_tok');
+      S.token = null;
+    }
+  }
+}
+
+async function fetchMe() {
+  try {
+    var r = await api('GET', '/api/me');
+    if(!r.ok) return false;
+    S.user = await r.json();
+    return true;
+  } catch(e) { return false; }
+}
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+function switchTab(t) {
+  document.querySelectorAll('.auth-tab').forEach(function(el, i) {
+    el.classList.toggle('active', (t==='login' && i===0) || (t==='reg' && i===1));
+  });
+  ge('login-form').style.display = t==='login' ? 'block' : 'none';
+  ge('reg-form').style.display = t==='reg' ? 'block' : 'none';
+  ge('auth-err').style.display = 'none';
+}
+
+async function doLogin() {
+  var btn = ge('login-btn');
+  var username = ge('li-user').value.trim();
+  var password = ge('li-pass').value;
+  if(!username || !password) { showAuthErr('Completa todos los campos'); return; }
+  btn.disabled = true; btn.textContent = 'Entrando...';
+  try {
+    var r = await api('POST', '/api/login', {username: username, password: password});
+    var d = await r.json();
+    if(!r.ok) { showAuthErr(d.error || 'Error al iniciar sesión'); return; }
+    S.token = d.token; S.user = d.user;
+    localStorage.setItem('nx_tok', d.token);
+    showApp();
+    await loadServers(); await loadFriends();
+    connectSocket(); showDMView();
+  } catch(e) {
+    showAuthErr('Error de conexión. ¿Está el servidor en marcha?');
+    console.error('Login error:', e);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Entrar →';
+  }
+}
+
+async function doRegister() {
+  var btn = ge('reg-btn');
+  var username = ge('rg-user').value.trim();
+  var email = ge('rg-email').value.trim();
+  var password = ge('rg-pass').value;
+  if(!username || !email || !password) { showAuthErr('Completa todos los campos'); return; }
+  if(password.length < 6) { showAuthErr('Contraseña mínimo 6 caracteres'); return; }
+  btn.disabled = true; btn.textContent = 'Creando cuenta...';
+  try {
+    var r = await api('POST', '/api/register', {username: username, email: email, password: password});
+    var d = await r.json();
+    if(!r.ok) { showAuthErr(d.error || 'Error al registrarse'); return; }
+    S.token = d.token; S.user = d.user;
+    localStorage.setItem('nx_tok', d.token);
+    showApp();
+    await loadServers(); await loadFriends();
+    connectSocket(); showDMView();
+    toast('¡Bienvenido a NexusChat! 🎉', 'ok');
+  } catch(e) {
+    showAuthErr('Error de conexión. ¿Está el servidor en marcha?');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Crear cuenta →';
+  }
+}
+
+function doLogout() {
+  localStorage.removeItem('nx_tok');
+  S.token = null; S.user = null;
+  if(S.socket) S.socket.disconnect();
+  ge('app').style.display = 'none';
+  ge('auth-screen').style.display = 'flex';
+}
+
+// ── APP ────────────────────────────────────────────────────────────────────────
+function showApp() {
+  ge('auth-screen').style.display = 'none';
+  ge('app').style.display = 'flex';
+  updateMyAvatar();
+  ge('my-uname').textContent = S.user.username;
+  updateMyStatusLine();
+}
+function updateMyAvatar() {
+  var el = ge('my-av'); el.innerHTML = '';
+  if(S.user.avatar_url) {
+    var img = document.createElement('img'); img.src = S.user.avatar_url; el.appendChild(img);
+  } else {
+    el.style.background = S.user.avatar_color;
+    el.textContent = S.user.username[0].toUpperCase();
+  }
+}
+function updateMyStatusLine() {
+  var el = ge('my-status-line');
+  var st = S.user && S.user.user_status;
+  el.innerHTML = st ? '<span style="color:var(--acc)">● ' + esc(st.text||'Estado activo') + '</span>' : '<span style="color:var(--green)">● En línea</span>';
+}
+
+// ── SOCKET ────────────────────────────────────────────────────────────────────
+function connectSocket() {
+  S.socket = io();
+  S.socket.on('connect', function(){ S.socket.emit('authenticate', {token: S.token}); });
+  S.socket.on('new_message', function(msg) {
+    var inCh = S.ch && msg.channel_id === S.ch.id;
+    var inDm = S.dm && msg.dm_room_id === [S.user.id, S.dm.id].sort().join('_');
+    if(inCh || inDm) { appendMsg(msg); scrollMsgs(); }
+  });
+  S.socket.on('friend_request', function(d) { toast('📨 ' + d.from.username + ' quiere ser tu amigo!', 'in'); loadFriends(); });
+  S.socket.on('friend_accepted', function(d) { toast('✅ ' + d.friend.username + ' aceptó tu solicitud', 'ok'); loadFriends(); });
+  S.socket.on('user_typing', function(d) {
+    var el = ge('typing'); el.textContent = d.username + ' está escribiendo...';
+    clearTimeout(S.typTimer); S.typTimer = setTimeout(function(){ el.textContent = ''; }, 3000);
+  });
+  S.socket.on('reaction_update', function(d) { updateReacts(d.message_id, d.reactions); });
+  S.socket.on('server_verified', function(d) {
+    var idx = S.servers.findIndex(function(s){ return s.id === d.server.id; });
+    if(idx >= 0) S.servers[idx] = d.server;
+    if(S.srv && S.srv.id === d.server.id) S.srv = d.server;
+    renderServers();
+    toast(d.server.verified ? '✅ Servidor verificado' : 'Verificación retirada', 'ok');
+  });
+  // Calls
+  S.socket.on('call_incoming', onCallIncoming);
+  S.socket.on('call_accepted', onCallAccepted);
+  S.socket.on('call_rejected', function(){ toast('Llamada rechazada', 'er'); hideCall(); });
+  S.socket.on('call_ended', function(){ toast('Llamada terminada', 'in'); hideCall(); });
+  S.socket.on('voice_offer', onVoiceOffer);
+  S.socket.on('voice_answer', onVoiceAnswer);
+  S.socket.on('voice_ice', onVoiceIce);
+}
+
+// ── SERVERS ───────────────────────────────────────────────────────────────────
+async function loadServers() {
+  try {
+    var r = await api('GET', '/api/servers');
+    if(r.ok) { S.servers = await r.json(); renderServers(); }
+  } catch(e) { console.error('loadServers:', e); }
+}
+function renderServers() {
+  var el = ge('srv-list'); el.innerHTML = '';
+  S.servers.forEach(function(srv) {
+    var d = document.createElement('div');
+    d.className = 's-icon'; d.title = srv.name; d.dataset.sid = srv.id;
+    d.innerHTML = srvIconHtml(srv, 46, '50%');
+    if(srv.verified) d.innerHTML += '<div class="verified-badge">✓</div>';
+    d.addEventListener('click', function(){ selectServer(srv); });
+    el.appendChild(d);
+  });
+}
+async function selectServer(srv) {
+  S.srv = srv; S.ch = null; S.dm = null;
+  document.querySelectorAll('.s-icon').forEach(function(e){ e.classList.remove('active'); });
+  var sicon = document.querySelector('[data-sid="' + srv.id + '"]');
+  if(sicon) sicon.classList.add('active');
+  ge('dm-btn').classList.remove('active');
+  if(S.socket) S.socket.emit('join_server_room', {server_id: srv.id});
+  // Panel banner
+  var pb = ge('panel-banner');
+  if(srv.banner_url) { ge('panel-banner-img').src = srv.banner_url; pb.style.display = 'block'; }
+  else pb.style.display = 'none';
+  // Load channels
+  try {
+    var r = await api('GET', '/api/servers/' + srv.id + '/channels');
+    if(!r.ok) { toast('Error al cargar canales', 'er'); return; }
+    var chs = await r.json();
+    renderServerPanel(srv, chs);
+  } catch(e) { toast('Error de conexión', 'er'); }
+  // Load members
+  loadMembers(srv.id);
+  // Buttons
+  ge('inv-btn').style.display = 'flex';
+  ge('memb-btn').style.display = 'flex';
+  ge('srv-set-btn').style.display = 'flex';
+  ge('call-btn').style.display = 'none';
+  ge('verify-btn').style.display = (S.user && S.user.username === 'Xokram') ? 'flex' : 'none';
+  setView('welcome');
+}
+function renderServerPanel(srv, chs) {
+  var ptitle = ge('ptitle');
+  ptitle.innerHTML = srvIconHtml(srv, 26, '6px') + '<span style="font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(srv.name) + '</span>' + (srv.verified ? '<span style="color:var(--green);font-size:13px">✓</span>' : '');
+  var pl = ge('panel-list'); pl.innerHTML = '';
+  // Boost section
+  var boostDiv = document.createElement('div'); boostDiv.style.padding = '8px 6px 4px';
+  boostDiv.innerHTML = '<button class="boost-btn" id="boost-btn-main"><span>⚡</span><span id="boost-count-label">' + srv.boost_count + ' boosts</span><span style="margin-left:auto;font-size:11px;color:var(--t3)">' + (S.user ? S.user.boost_count : 0) + ' tuyas</span></button><div class="boost-bar-wrap"><div class="boost-bar" id="boost-bar-fill" style="width:' + Math.min(100, (srv.boost_count/10)*100) + '%"></div></div>';
+  boostDiv.querySelector('#boost-btn-main').addEventListener('click', doBoost);
+  pl.appendChild(boostDiv);
+  // Text channels
+  var textChs = chs.filter(function(c){ return c.type !== 'voice'; });
+  var voiceChs = chs.filter(function(c){ return c.type === 'voice'; });
+  function addChSection(label, arr, icon, chType) {
+    if(!arr.length) return;
+    var sec = document.createElement('div'); sec.className = 'psec';
+    sec.innerHTML = '<span>' + label + '</span>';
+    var addBtn = document.createElement('button'); addBtn.className = 'pab'; addBtn.title = 'Nuevo canal'; addBtn.textContent = '＋';
+    addBtn.addEventListener('click', function(){ showCreateCh(chType); });
+    sec.appendChild(addBtn); pl.appendChild(sec);
+    arr.forEach(function(ch) {
+      var d = document.createElement('div'); d.className = 'pitem'; d.dataset.chid = ch.id;
+      d.innerHTML = '<span style="color:var(--t3);font-size:15px">' + icon + '</span><span>' + esc(ch.name) + '</span>';
+      d.addEventListener('click', function(){ selectChannel(ch); });
+      pl.appendChild(d);
+    });
+  }
+  addChSection('Canales de texto', textChs, '#', 'text');
+  addChSection('Canales de voz', voiceChs, '🔊', 'voice');
+}
+async function loadMembers(sid) {
+  try {
+    var r = await api('GET', '/api/servers/' + sid + '/members');
+    if(r.ok) { S.members = await r.json(); renderMembers(); }
+  } catch(e) { console.error('loadMembers:', e); }
+}
+function renderMembers() {
+  var el = ge('memblist'); el.innerHTML = '';
+  ge('membhdr').textContent = 'Miembros — ' + S.members.length;
+  var owners = S.members.filter(function(m){ return m.role === 'owner'; });
+  var admins = S.members.filter(function(m){ return m.role === 'admin'; });
+  var rest = S.members.filter(function(m){ return m.role === 'member'; });
+  function addGroup(label, arr) {
+    if(!arr.length) return;
+    var sec = document.createElement('div'); sec.className = 'membsec'; sec.textContent = label; el.appendChild(sec);
+    arr.forEach(function(m) {
+      var d = document.createElement('div'); d.className = 'mitem';
+      var badges = (m.roles||[]).map(function(r){ return '<span class="role-badge" style="background:' + r.color + '22;color:' + r.color + ';border:1px solid ' + r.color + '44">' + esc(r.name) + '</span>'; }).join('');
+      d.innerHTML = '<div class="avwrap">' + avatarHtml(m, 32) + '<div class="sdot"></div></div><div style="min-width:0"><div style="font-family:var(--fd);font-size:14px;font-weight:600;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(m.username) + '</div>' + (badges ? '<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:2px">' + badges + '</div>' : '') + '</div>';
+      (function(member){ d.addEventListener('click', function(){ showUserProfile(member); }); })(m);
+      el.appendChild(d);
+    });
+  }
+  addGroup('👑 Dueño', owners); addGroup('🛡 Admin', admins); addGroup('👤 Miembros', rest);
+  if(S.showMembers) { ge('membpanel').style.display = 'flex'; ge('membpanel').style.flexDirection = 'column'; }
+}
+async function selectChannel(ch) {
+  S.ch = ch; S.dm = null;
+  document.querySelectorAll('#panel-list .pitem').forEach(function(e){ e.classList.remove('active'); });
+  var chEl = document.querySelector('[data-chid="' + ch.id + '"]');
+  if(chEl) chEl.classList.add('active');
+  ge('chdr-ico').textContent = ch.type === 'voice' ? '🔊' : '#';
+  ge('chdr-title').textContent = ch.name;
+  ge('call-btn').style.display = 'none';
+  if(S.socket) S.socket.emit('join_channel', {channel_id: ch.id});
+  try {
+    var r = await api('GET', '/api/channels/' + ch.id + '/messages');
+    if(r.ok) { S.messages = await r.json(); renderMsgs(); }
+  } catch(e) { toast('Error al cargar mensajes', 'er'); }
+  setView('chat');
+}
+
+// ── DMs ───────────────────────────────────────────────────────────────────────
+function showDMView() {
+  S.srv = null; S.ch = null;
+  document.querySelectorAll('.s-icon').forEach(function(e){ e.classList.remove('active'); });
+  ge('dm-btn').classList.add('active');
+  ge('panel-banner').style.display = 'none';
+  ge('ptitle').innerHTML = '<span>💬</span><span>Mensajes directos</span>';
+  var pl = ge('panel-list'); pl.innerHTML = '';
+  // Friends link
+  var fb = document.createElement('div'); fb.className = 'pitem';
+  fb.innerHTML = '<span>👥</span><span>Amigos</span>';
+  fb.addEventListener('click', function() {
+    document.querySelectorAll('.pitem').forEach(function(e){ e.classList.remove('active'); });
+    fb.classList.add('active');
+    setView('friends'); renderFriends('all');
+    ge('membpanel').style.display = 'none';
+    ['inv-btn','srv-set-btn','verify-btn','call-btn'].forEach(function(id){ ge(id).style.display = 'none'; });
+  });
+  pl.appendChild(fb);
+  // Status button
+  var sb = document.createElement('div'); sb.className = 'pitem';
+  var myStatus = S.user && S.user.user_status;
+  sb.innerHTML = '<span>✨</span><div style="min-width:0"><div>Mi estado</div><div class="dm-status-text" style="color:' + (myStatus?'var(--t2)':'var(--acc)') + '">' + (myStatus ? esc(myStatus.text||'Estado activo') : 'Configurar estado') + '</div></div>';
+  sb.addEventListener('click', showStatusModal);
+  pl.appendChild(sb);
+  // DM list
+  var sec = document.createElement('div'); sec.className = 'psec'; sec.textContent = 'Mensajes directos'; pl.appendChild(sec);
+  S.friends.forEach(function(f) {
+    var d = document.createElement('div'); d.className = 'pitem'; d.dataset.dmid = f.id;
+    var fst = f.user_status;
+    var stHtml = fst ? '<div class="dm-status-text">' + (fst.image_url ? '<img src="' + fst.image_url + '" style="width:14px;height:14px;border-radius:3px;object-fit:cover;vertical-align:middle;margin-right:3px">' : '') + esc(fst.text||'') + '</div>' : '';
+    d.innerHTML = '<div class="pitem-ico">' + avatarHtml(f, 32) + '</div><div style="min-width:0"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(f.username) + '</div>' + stHtml + '</div>';
+    (function(friend){ d.addEventListener('click', function(){ openDM(friend); }); })(f);
+    pl.appendChild(d);
+  });
+  ['inv-btn','srv-set-btn','verify-btn','call-btn'].forEach(function(id){ ge(id).style.display = 'none'; });
+  ge('membpanel').style.display = 'none';
+  setView('friends'); renderFriends('all');
+}
+async function openDM(friend) {
+  S.dm = friend; S.ch = null;
+  document.querySelectorAll('.pitem').forEach(function(e){ e.classList.remove('active'); });
+  var dmEl = document.querySelector('[data-dmid="' + friend.id + '"]');
+  if(dmEl) dmEl.classList.add('active');
+  ge('chdr-ico').innerHTML = avatarHtml(friend, 24);
+  ge('chdr-title').textContent = friend.username;
+  ge('call-btn').style.display = 'flex';
+  var room = [S.user.id, friend.id].sort().join('_');
+  if(S.socket) S.socket.emit('join_dm', {room_id: room});
+  try {
+    var r = await api('GET', '/api/dm/' + friend.id + '/messages');
+    if(r.ok) { S.messages = await r.json(); renderMsgs(); }
+  } catch(e) { toast('Error al cargar mensajes', 'er'); }
+  ge('membpanel').style.display = 'none';
+  ['inv-btn','srv-set-btn','verify-btn'].forEach(function(id){ ge(id).style.display = 'none'; });
+  setView('chat');
+}
+
+// ── FRIENDS ───────────────────────────────────────────────────────────────────
+async function loadFriends() {
+  try {
+    var r = await api('GET', '/api/friends');
+    if(!r.ok) return;
+    var d = await r.json();
+    S.friends = d.friends; S.pending = d.pending;
+    var el = ge('pcnt');
+    if(el) el.textContent = S.pending.length > 0 ? '(' + S.pending.length + ')' : '';
+  } catch(e) { console.error('loadFriends:', e); }
+}
+function renderFriends(tab) {
+  document.querySelectorAll('.ftab').forEach(function(t, i) {
+    t.classList.toggle('active', (tab==='all' && i===0) || (tab==='pending' && i===1));
+  });
+  var c = ge('flist'); c.innerHTML = '';
+  if(tab === 'all') {
+    if(!S.friends.length) { c.innerHTML = '<div style="text-align:center;color:var(--t3);padding:50px 20px;font-size:16px">Sin amigos aún 😢<br>Añade a alguien arriba</div>'; return; }
+    S.friends.forEach(function(f) {
+      var d = document.createElement('div'); d.className = 'fcard';
+      var fst = f.user_status;
+      var stHtml = fst ? '<div class="fstatus-line">' + (fst.image_url ? '<img src="' + fst.image_url + '" style="width:14px;height:14px;border-radius:3px;object-fit:cover">' : '') + esc(fst.text||'') + ' · ' + timeAgo(fst.created_at) + '</div>' : '';
+      d.innerHTML = '<div class="avwrap">' + avatarHtml(f, 40) + '<div class="sdot"></div></div><div style="flex:1;min-width:0"><div class="fname">' + esc(f.username) + '</div><div class="fstatus">● En línea</div>' + stHtml + '</div><div style="display:flex;gap:6px;flex-shrink:0"><button class="btn-sec" style="padding:7px 12px;font-size:13px" id="dm-fr-' + f.id + '">💬</button><button class="btn-sec" style="padding:7px 12px;font-size:13px" id="prof-fr-' + f.id + '">👤</button></div>';
+      (function(friend) {
+        d.querySelector('#dm-fr-' + friend.id).addEventListener('click', function(){ openDM(friend); });
+        d.querySelector('#prof-fr-' + friend.id).addEventListener('click', function(){ showUserProfile(friend); });
+      })(f);
+      c.appendChild(d);
+    });
+  } else {
+    if(!S.pending.length) { c.innerHTML = '<div style="text-align:center;color:var(--t3);padding:50px 20px;font-size:16px">Sin solicitudes pendientes ✅</div>'; return; }
+    S.pending.forEach(function(req) {
+      var d = document.createElement('div'); d.className = 'pcard';
+      d.innerHTML = avatarHtml(req.user, 40) + '<div><div class="fname">' + esc(req.user.username) + '</div><div style="font-size:13px;color:var(--t3)">Solicitud entrante</div></div><div class="pac"><button class="abtn ok" id="acc-' + req.friendship_id + '">✓</button><button class="abtn no" id="rej-' + req.friendship_id + '">✗</button></div>';
+      (function(fid) {
+        d.querySelector('#acc-' + fid).addEventListener('click', function(){ acceptF(fid); });
+        d.querySelector('#rej-' + fid).addEventListener('click', function(){ rejectF(fid); });
+      })(req.friendship_id);
+      c.appendChild(d);
+    });
+  }
+}
+function showFTab(tab) { renderFriends(tab); }
+async function acceptF(fid) {
+  try {
+    var r = await api('POST', '/api/friends/accept/' + fid);
+    if(r.ok) { toast('Solicitud aceptada ✅', 'ok'); await loadFriends(); showDMView(); }
+  } catch(e) { toast('Error', 'er'); }
+}
+async function rejectF(fid) {
+  try {
+    var r = await api('POST', '/api/friends/reject/' + fid);
+    if(r.ok) { await loadFriends(); renderFriends('pending'); }
+  } catch(e) { toast('Error', 'er'); }
+}
+function showAddFriend() {
+  showModal('<div class="mtitle">➕ Añadir amigo</div><p style="color:var(--t2);margin-bottom:18px;font-size:15px">Añade a alguien por su nombre de usuario.</p><div class="form-group"><label class="form-label">Nombre de usuario</label><input class="form-input" id="af-inp" type="text" placeholder="usuario_cool" autocomplete="off"></div><div style="display:flex;gap:10px;margin-top:16px"><button class="btn-primary" style="flex:1" id="af-send-btn">Enviar solicitud</button><button class="btn-sec" id="af-cancel-btn">Cancelar</button></div>');
+  ge('af-cancel-btn').addEventListener('click', closeModal);
+  ge('af-inp').addEventListener('keydown', function(e){ if(e.key==='Enter') doAddFriend(); });
+  ge('af-send-btn').addEventListener('click', doAddFriend);
+  ge('af-inp').focus();
+}
+async function doAddFriend() {
+  var u = (ge('af-inp').value||'').trim(); if(!u) return;
+  try {
+    var r = await api('POST', '/api/friends/request', {username: u});
+    var d = await r.json();
+    if(!r.ok) { toast(d.error||'Error', 'er'); return; }
+    closeModal(); toast('Solicitud enviada a ' + u + ' 📨', 'ok');
+  } catch(e) { toast('Error de conexión', 'er'); }
+}
+
+// ── MESSAGES ──────────────────────────────────────────────────────────────────
+function renderMsgs() { var c = ge('msgs'); c.innerHTML = ''; S.messages.forEach(function(m){ appendMsg(m, false); }); scrollMsgs(); }
+function appendMsg(msg, sc) {
+  sc = sc !== false;
+  var c = ge('msgs');
+  var inCh = S.ch && msg.channel_id === S.ch.id;
+  var inDm = S.dm && msg.dm_room_id === [S.user.id, S.dm.id].sort().join('_');
+  if(!inCh && !inDm) return;
+  var el = document.createElement('div'); el.className = 'mg'; el.dataset.mid = msg.id;
+  var sndr = msg.sender || {};
+  var time = new Date(msg.created_at).toLocaleTimeString('es', {hour:'2-digit',minute:'2-digit'});
+  var body = '';
+  if(msg.content) body += '<div class="mtext">' + esc(msg.content) + '</div>';
+  if(msg.file_url) {
+    var imgs = ['jpg','jpeg','png','gif','webp','svg'];
+    if(imgs.indexOf(msg.file_type||'') >= 0) body += '<img class="mimg" src="' + msg.file_url + '" alt="' + esc(msg.file_name||'imagen') + '">';
+    else body += '<a class="mfile" href="' + msg.file_url + '" download="' + esc(msg.file_name||'archivo') + '" target="_blank">📄 ' + esc(msg.file_name||'Archivo') + '</a>';
+  }
+  el.innerHTML = '<div class="mav" style="background:' + (sndr.avatar_color||'#7c3aed') + '">' + (sndr.avatar_url ? '<img src="' + sndr.avatar_url + '" style="width:38px;height:38px;border-radius:50%;object-fit:cover" alt="">' : (sndr.username||'?')[0].toUpperCase()) + '</div><div class="mc"><div class="mhdr"><span class="muser" style="color:' + (sndr.avatar_color||'#a855f7') + '">' + esc(sndr.username||'?') + '</span><span class="mtime">' + time + '</span><button class="radd" id="radd-' + msg.id + '">😀+</button></div>' + body + '<div class="mreacts" id="r-' + msg.id + '"></div></div>';
+  if(msg.reactions) updateReacts(msg.id, msg.reactions);
+  var mav = el.querySelector('.mav');
+  var muser = el.querySelector('.muser');
+  (function(sender) {
+    mav.addEventListener('click', function(){ showUserProfile(sender); });
+    muser.addEventListener('click', function(){ showUserProfile(sender); });
+  })(sndr);
+  var mimg = el.querySelector('.mimg');
+  if(mimg) { (function(url){ mimg.addEventListener('click', function(){ openLB(url); }); })(msg.file_url); }
+  var raddbtn = el.querySelector('#radd-' + msg.id);
+  (function(mid){ raddbtn.addEventListener('click', function(e){ toggleRMenu(e, mid); }); })(msg.id);
+  c.appendChild(el);
+  if(sc) scrollMsgs();
+}
+function updateReacts(mid, reactions) {
+  var c = ge('r-' + mid); if(!c) return; c.innerHTML = '';
+  Object.keys(reactions).forEach(function(em) {
+    var b = document.createElement('button'); b.className = 'rbadge';
+    b.innerHTML = em + ' <span>' + reactions[em] + '</span>';
+    (function(emoji){ b.addEventListener('click', function(){ addReact(mid, emoji); }); })(em);
+    c.appendChild(b);
+  });
+}
+function scrollMsgs() { var c = ge('msgs'); c.scrollTop = c.scrollHeight; }
+
+// ── SEND ──────────────────────────────────────────────────────────────────────
+function sendMsg() {
+  var inp = ge('msginput');
+  var content = inp.value.trim();
+  if(!content && !S.uploadFile) return;
+  if(!S.socket) { toast('Sin conexión', 'er'); return; }
+  var payload = {token: S.token, content: content};
+  if(S.uploadFile) { payload.file_url = S.uploadFile.url; payload.file_name = S.uploadFile.name; payload.file_type = S.uploadFile.type; }
+  if(S.ch) payload.channel_id = S.ch.id;
+  else if(S.dm) payload.dm_room_id = [S.user.id, S.dm.id].sort().join('_');
+  else return;
+  S.socket.emit('send_message', payload);
+  inp.value = ''; inp.style.height = 'auto'; S.uploadFile = null; ge('upload-preview').innerHTML = '';
+}
+function onKey(e) { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } }
+function resizeTa(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
+function onType() {
+  if(!S.socket || (!S.ch && !S.dm)) return;
+  var room = S.ch ? 'channel_' + S.ch.id : 'dm_' + [S.user.id, S.dm.id].sort().join('_');
+  S.socket.emit('typing', {token: S.token, room: room});
+}
+
+// ── FILE UPLOAD ───────────────────────────────────────────────────────────────
+async function handleFile(e) {
+  var file = e.target.files[0]; if(!file) return;
+  var fd = new FormData(); fd.append('file', file);
+  toast('Subiendo...', 'in');
+  try {
+    var r = await api('POST', '/api/upload', fd, true);
+    if(r.ok) {
+      var d = await r.json(); S.uploadFile = d;
+      var pv = ge('upload-preview');
+      var imgs = ['jpg','jpeg','png','gif','webp'];
+      if(imgs.indexOf(d.type) >= 0) pv.innerHTML = '<div style="padding:6px 0;display:flex;align-items:center;gap:10px"><img src="' + d.url + '" style="height:55px;border-radius:8px"><span style="font-size:13px;color:var(--t2)">' + esc(d.name) + '</span><button id="cancel-up-btn" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px">✕</button></div>';
+      else pv.innerHTML = '<div style="padding:6px 0;display:flex;align-items:center;gap:10px"><span style="font-size:22px">📄</span><span style="font-size:13px;color:var(--t2)">' + esc(d.name) + '</span><button id="cancel-up-btn" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px">✕</button></div>';
+      var btn = ge('cancel-up-btn'); if(btn) btn.addEventListener('click', cancelUp);
+      toast('Listo ✅', 'ok');
+    } else toast('Error al subir', 'er');
+  } catch(ex) { toast('Error de conexión', 'er'); }
+  e.target.value = '';
+}
+function cancelUp() { S.uploadFile = null; ge('upload-preview').innerHTML = ''; }
+
+// ── REACTIONS ─────────────────────────────────────────────────────────────────
+function toggleRMenu(e, mid) {
+  e.stopPropagation();
+  document.querySelectorAll('.rmenu').forEach(function(m){ m.remove(); });
+  var menu = document.createElement('div'); menu.className = 'rmenu';
+  EMOJIS.slice(0, 18).forEach(function(em) {
+    var b = document.createElement('button'); b.className = 'ebtn'; b.textContent = em;
+    (function(emoji){ b.addEventListener('click', function(ev){ ev.stopPropagation(); addReact(mid, emoji); menu.remove(); }); })(em);
+    menu.appendChild(b);
+  });
+  var rect = e.target.getBoundingClientRect();
+  menu.style.left = rect.left + 'px'; menu.style.top = (rect.bottom + 4) + 'px';
+  document.body.appendChild(menu);
+  setTimeout(function(){ document.addEventListener('click', function(){ menu.remove(); }, {once: true}); }, 10);
+}
+async function addReact(mid, emoji) {
+  try { await api('POST', '/api/messages/' + mid + '/react', {emoji: emoji}); } catch(e) {}
+}
+
+// ── EMOJI ─────────────────────────────────────────────────────────────────────
+function toggleEmoji() {
+  var ep = ge('epicker');
+  ep.style.display = ep.style.display === 'grid' ? 'none' : 'grid';
+}
+function insertEmoji(e) {
+  var inp = ge('msginput');
+  var p = inp.selectionStart;
+  inp.value = inp.value.slice(0, p) + e + inp.value.slice(p);
+  inp.selectionStart = inp.selectionEnd = p + e.length;
+  inp.focus();
+  ge('epicker').style.display = 'none';
+}
+
+// ── MY PROFILE ────────────────────────────────────────────────────────────────
+function showMyProfile() {
+  var u = S.user; if(!u) return;
+  var bannerInner = u.banner_url ? '<img src="' + u.banner_url + '" alt="">' : '<div style="width:100%;height:100%;background:linear-gradient(135deg,' + u.avatar_color + ',#3b82f6)"></div>';
+  var avInner = u.avatar_url ? '<img src="' + u.avatar_url + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">' : '<div class="av-inner" style="background:' + u.avatar_color + '">' + u.username[0].toUpperCase() + '</div>';
+  var stSection = '';
+  if(u.user_status) {
+    stSection = '<div class="status-card"><div style="font-size:28px">' + (u.user_status.image_url ? '<img src="' + u.user_status.image_url + '" class="status-img">' : '✨') + '</div><div><div style="font-size:14px;font-weight:500">' + esc(u.user_status.text||'') + '</div><div class="status-time">Publicado ' + timeAgo(u.user_status.created_at) + '</div></div></div>';
+  }
+  showModal('<div class="prof-banner" id="my-banner-wrap">' + bannerInner + '<div class="prof-overlay">📷 Cambiar banner</div></div><div style="display:flex;align-items:flex-end;gap:12px;margin-bottom:14px"><div class="prof-av-big" id="my-av-wrap">' + avInner + '<div class="prof-overlay" style="border-radius:50%">📷</div></div><div><div style="font-family:var(--fd);font-size:22px;font-weight:800">' + esc(u.username) + '</div><div style="font-size:13px;color:var(--green)">● En línea</div></div></div><div style="background:var(--bg3);border-radius:12px;padding:14px;margin-bottom:12px"><div class="form-label" style="margin-bottom:8px">Sobre mí</div><textarea id="bio-inp" class="form-input" style="resize:none;height:70px;font-size:14px" placeholder="Cuéntale al mundo quién eres...">' + esc(u.bio||'') + '</textarea></div><div style="background:var(--bg3);border-radius:12px;padding:14px;margin-bottom:12px"><div class="form-label" style="margin-bottom:8px">Estado (12 horas)</div>' + stSection + '<button class="btn-sec" style="width:100%;margin-bottom:6px" id="status-open-btn">✨ ' + (u.user_status?'Cambiar estado':'Poner estado') + '</button>' + (u.user_status?'<button class="btn-danger" style="width:100%" id="status-del-btn">🗑 Quitar estado</button>':'') + '</div><div style="background:var(--bg3);border-radius:12px;padding:14px;margin-bottom:14px"><div class="form-label" style="margin-bottom:4px">Boosts disponibles</div><div style="font-family:var(--fd);font-size:20px;color:var(--gold)">⚡ ' + u.boost_count + ' boosts</div></div><div style="display:flex;gap:10px"><button class="btn-primary" style="flex:1" id="save-bio-btn">Guardar perfil</button><button class="btn-sec" id="close-prof-btn">Cerrar</button></div>');
+  ge('my-banner-wrap').addEventListener('click', function(){ triggerFileInput('my-banner-file'); });
+  ge('my-av-wrap').addEventListener('click', function(){ triggerFileInput('my-av-file'); });
+  ge('status-open-btn').addEventListener('click', function(){ closeModal(); showStatusModal(); });
+  ge('save-bio-btn').addEventListener('click', saveMyBio);
+  ge('close-prof-btn').addEventListener('click', closeModal);
+  var delBtn = ge('status-del-btn');
+  if(delBtn) delBtn.addEventListener('click', deleteMyStatus);
+  // Hidden file inputs
+  var bannerInp = document.createElement('input'); bannerInp.type = 'file'; bannerInp.id = 'my-banner-file'; bannerInp.accept = 'image/*,.gif'; bannerInp.style.display = 'none';
+  bannerInp.addEventListener('change', uploadMyBanner);
+  document.body.appendChild(bannerInp);
+  var avInp = document.createElement('input'); avInp.type = 'file'; avInp.id = 'my-av-file'; avInp.accept = 'image/*,.gif'; avInp.style.display = 'none';
+  avInp.addEventListener('change', uploadMyAvatar);
+  document.body.appendChild(avInp);
+}
+function triggerFileInput(id) { var el = ge(id); if(el) el.click(); }
+async function uploadMyAvatar(e) {
+  var file = e.target.files[0]; if(!file) return;
+  var fd = new FormData(); fd.append('file', file);
+  toast('Subiendo foto...', 'in');
+  try {
+    var r = await api('POST', '/api/me/avatar', fd, true);
+    if(r.ok) { S.user = await r.json(); updateMyAvatar(); closeModal(); showMyProfile(); toast('Foto actualizada ✅', 'ok'); }
+    else toast('Error al subir', 'er');
+  } catch(ex) { toast('Error de conexión', 'er'); }
+  e.target.value = '';
+}
+async function uploadMyBanner(e) {
+  var file = e.target.files[0]; if(!file) return;
+  var fd = new FormData(); fd.append('file', file);
+  toast('Subiendo banner...', 'in');
+  try {
+    var r = await api('POST', '/api/me/banner', fd, true);
+    if(r.ok) { S.user = await r.json(); closeModal(); showMyProfile(); toast('Banner actualizado ✅', 'ok'); }
+    else toast('Error al subir', 'er');
+  } catch(ex) { toast('Error de conexión', 'er'); }
+  e.target.value = '';
+}
+async function saveMyBio() {
+  var bio = ge('bio-inp') ? ge('bio-inp').value : '';
+  try {
+    var r = await api('PATCH', '/api/me/profile', {bio: bio});
+    if(r.ok) { S.user = await r.json(); toast('Perfil guardado ✅', 'ok'); closeModal(); }
+  } catch(e) { toast('Error', 'er'); }
+}
+
+// ── STATUS ────────────────────────────────────────────────────────────────────
+function showStatusModal() {
+  var currentText = (S.user && S.user.user_status && S.user.user_status.text) || '';
+  showModal('<div class="mtitle">✨ Mi estado</div><p style="color:var(--t2);font-size:14px;margin-bottom:16px">Se muestra en el menú de DMs. Desaparece en 12 horas.</p><div class="form-group"><label class="form-label">Imagen/GIF (opcional)</label><div style="display:flex;align-items:center;gap:10px"><div id="status-img-prev" style="width:60px;height:60px;border-radius:10px;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:24px;overflow:hidden;flex-shrink:0">✨</div><label class="btn-sec" style="cursor:pointer;flex:1;text-align:center">📷 Subir imagen<input type="file" id="status-file-inp" style="display:none" accept="image/*,.gif"></label></div></div><div class="form-group"><label class="form-label">Texto del estado</label><input class="form-input" id="status-text-inp" type="text" placeholder="¿Qué estás haciendo?" maxlength="100" value="' + esc(currentText) + '"></div><div style="display:flex;gap:10px;margin-top:16px"><button class="btn-primary" style="flex:1" id="save-status-btn">Guardar estado</button><button class="btn-sec" id="cancel-status-btn">Cancelar</button></div>');
+  ge('cancel-status-btn').addEventListener('click', closeModal);
+  ge('save-status-btn').addEventListener('click', saveStatus);
+  ge('status-text-inp').focus();
+  ge('status-file-inp').addEventListener('change', function(e) {
+    var file = e.target.files[0]; if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev){ ge('status-img-prev').innerHTML = '<img src="' + ev.target.result + '" style="width:100%;height:100%;object-fit:cover">'; };
+    reader.readAsDataURL(file);
+  });
+}
+async function saveStatus() {
+  var text = (ge('status-text-inp') ? ge('status-text-inp').value : '').trim();
+  var fileInp = ge('status-file-inp');
+  var fd = new FormData(); fd.append('text', text);
+  if(fileInp && fileInp.files[0]) fd.append('file', fileInp.files[0]);
+  try {
+    var r = await api('POST', '/api/me/status', fd, true);
+    if(r.ok) { S.user = await r.json(); updateMyStatusLine(); closeModal(); showDMView(); toast('Estado actualizado ✅', 'ok'); }
+    else toast('Error', 'er');
+  } catch(e) { toast('Error de conexión', 'er'); }
+}
+async function deleteMyStatus() {
+  try {
+    var r = await api('DELETE', '/api/me/status');
+    if(r.ok) { S.user.user_status = null; updateMyStatusLine(); closeModal(); showDMView(); toast('Estado eliminado', 'in'); }
+  } catch(e) { toast('Error', 'er'); }
+}
+
+// ── USER PROFILE (others) ────────────────────────────────────────────────────
+function showUserProfile(user) {
+  if(!user || !user.username) return;
+  var fst = user.user_status;
+  var avHtml = user.avatar_url ? '<img src="' + user.avatar_url + '" style="width:100%;height:100%;object-fit:cover" alt="">' : '<div style="width:100%;height:100%;background:' + (user.avatar_color||'#7c3aed') + ';display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:28px;font-weight:800;color:#fff">' + (user.username||'?')[0].toUpperCase() + '</div>';
+  var stHtml = fst ? '<div class="status-card"><div style="font-size:28px">' + (fst.image_url ? '<img src="' + fst.image_url + '" class="status-img">' : '✨') + '</div><div><div style="font-size:14px;font-weight:500">' + esc(fst.text||'') + '</div><div class="status-time">Publicado ' + timeAgo(fst.created_at) + '</div></div></div>' : '';
+  var isFriend = S.friends.some(function(f){ return f.id === user.id; });
+  showModal('<div style="height:90px;border-radius:12px;overflow:hidden;margin-bottom:-45px;background:linear-gradient(135deg,' + (user.avatar_color||'#7c3aed') + ',#1d4ed8)">' + (user.banner_url ? '<img src="' + user.banner_url + '" style="width:100%;height:100%;object-fit:cover" alt="">' : '') + '</div><div style="display:flex;align-items:flex-end;gap:12px;margin-bottom:14px;padding:0 4px"><div style="width:72px;height:72px;border-radius:50%;border:4px solid var(--bg2);overflow:hidden;flex-shrink:0">' + avHtml + '</div><div><div style="font-family:var(--fd);font-size:22px;font-weight:800">' + esc(user.username||'') + '</div><div style="font-size:13px;color:var(--green)">● En línea</div></div></div>' + (user.bio ? '<div style="background:var(--bg3);border-radius:10px;padding:12px;font-size:14px;color:var(--t2);margin-bottom:12px">' + esc(user.bio) + '</div>' : '') + stHtml + '<div style="display:flex;gap:8px;margin-top:12px">' + (isFriend ? '<button class="btn-primary" style="flex:1" id="open-dm-prof-btn">💬 Mensaje</button>' : '') + '<button class="btn-sec" style="flex:1" id="close-prof-btn2">Cerrar</button></div>');
+  ge('close-prof-btn2').addEventListener('click', closeModal);
+  if(isFriend) {
+    (function(u){ ge('open-dm-prof-btn').addEventListener('click', function(){ openDM(u); closeModal(); }); })(user);
+  }
+}
+
+// ── SERVER SETTINGS ───────────────────────────────────────────────────────────
+function showServerSettings() {
+  if(!S.srv) return;
+  var srv = S.srv;
+  var myRole = (S.members.find(function(m){ return m.id === S.user.id; }) || {}).role;
+  var canEdit = myRole === 'owner' || myRole === 'admin';
+  var bannerHtml = srv.banner_url ? '<img src="' + srv.banner_url + '" alt="">' : '<div style="width:100%;height:100%;background:linear-gradient(135deg,' + srv.icon_color + ',#1d4ed8)"></div>';
+  var icoHtml = srv.icon_url ? '<img src="' + srv.icon_url + '" alt="">' : srv.name[0].toUpperCase();
+  var editFields = canEdit ? '<div class="form-group"><label class="form-label">Nombre del servidor</label><input class="form-input" id="srv-name-inp" value="' + esc(srv.name) + '" maxlength="100"></div><div class="form-group"><label class="form-label">Descripción</label><textarea class="form-input" id="srv-desc-inp" style="resize:none;height:70px;font-size:14px" placeholder="Describe tu servidor...">' + esc(srv.description||'') + '</textarea></div><div style="display:flex;gap:10px;margin-bottom:14px"><button class="btn-primary" style="flex:1" id="save-srv-btn">Guardar</button><button class="btn-sec" id="roles-open-btn">🎭 Roles</button></div>' : '';
+  showModal('<div class="mtitle">⚙️ ' + esc(srv.name) + '</div><div class="edit-wrap" id="srv-banner-wrap" style="width:100%;height:80px;border-radius:12px;overflow:hidden;margin-bottom:14px">' + bannerHtml + (canEdit ? '<div class="prof-overlay">📷 Cambiar banner</div>' : '') + '</div><div style="display:flex;align-items:center;gap:14px;margin-bottom:18px"><div class="edit-wrap" id="srv-ico-wrap" style="width:60px;height:60px;border-radius:14px;overflow:hidden;background:' + srv.icon_color + ';display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:22px;font-weight:800;color:#fff">' + icoHtml + (canEdit ? '<div class="prof-overlay">📷</div>' : '') + '</div><div><div style="font-family:var(--fd);font-size:20px;font-weight:800;display:flex;align-items:center;gap:6px">' + esc(srv.name) + (srv.verified ? '<span style="color:var(--green)">✓</span>' : '') + '</div><div style="font-size:13px;color:var(--t3)">' + srv.member_count + ' miembros · ⚡ ' + srv.boost_count + ' boosts</div></div></div>' + editFields + '<button class="btn-sec" style="width:100%" id="close-srv-set-btn">Cerrar</button>', 'wide');
+  ge('close-srv-set-btn').addEventListener('click', closeModal);
+  if(canEdit) {
+    ge('srv-banner-wrap').addEventListener('click', function(){ triggerFileInput('srv-banner-file'); });
+    ge('srv-ico-wrap').addEventListener('click', function(){ triggerFileInput('srv-ico-file'); });
+    var bFile = document.createElement('input'); bFile.type='file'; bFile.id='srv-banner-file'; bFile.accept='image/*,.gif'; bFile.style.display='none'; bFile.addEventListener('change', uploadSrvBanner); document.body.appendChild(bFile);
+    var iFile = document.createElement('input'); iFile.type='file'; iFile.id='srv-ico-file'; iFile.accept='image/*,.gif'; iFile.style.display='none'; iFile.addEventListener('change', uploadSrvIcon); document.body.appendChild(iFile);
+    ge('save-srv-btn').addEventListener('click', saveSrvSettings);
+    ge('roles-open-btn').addEventListener('click', function(){ closeModal(); showRolesModal(); });
+  }
+}
+async function uploadSrvIcon(e) {
+  var file = e.target.files[0]; if(!file || !S.srv) return;
+  var fd = new FormData(); fd.append('file', file);
+  toast('Subiendo icono...', 'in');
+  try {
+    var r = await api('POST', '/api/servers/' + S.srv.id + '/icon', fd, true);
+    if(r.ok) { var d = await r.json(); S.srv = d; var idx = S.servers.findIndex(function(s){ return s.id===d.id; }); if(idx>=0) S.servers[idx]=d; renderServers(); closeModal(); showServerSettings(); toast('Icono actualizado ✅', 'ok'); }
+    else toast('Error', 'er');
+  } catch(ex) { toast('Error de conexión', 'er'); }
+  e.target.value = '';
+}
+async function uploadSrvBanner(e) {
+  var file = e.target.files[0]; if(!file || !S.srv) return;
+  var fd = new FormData(); fd.append('file', file);
+  toast('Subiendo banner...', 'in');
+  try {
+    var r = await api('POST', '/api/servers/' + S.srv.id + '/banner', fd, true);
+    if(r.ok) {
+      var d = await r.json(); S.srv = d; var idx = S.servers.findIndex(function(s){ return s.id===d.id; }); if(idx>=0) S.servers[idx]=d;
+      if(d.banner_url) { ge('panel-banner-img').src = d.banner_url; ge('panel-banner').style.display = 'block'; }
+      closeModal(); showServerSettings(); toast('Banner actualizado ✅', 'ok');
+    } else toast('Error', 'er');
+  } catch(ex) { toast('Error de conexión', 'er'); }
+  e.target.value = '';
+}
+async function saveSrvSettings() {
+  var nameEl = ge('srv-name-inp'), descEl = ge('srv-desc-inp');
+  var name = nameEl ? nameEl.value.trim() : '';
+  var desc = descEl ? descEl.value : '';
+  if(!name || !S.srv) return;
+  try {
+    var r = await api('PATCH', '/api/servers/' + S.srv.id, {name: name, description: desc});
+    if(r.ok) { var d = await r.json(); S.srv = d; var idx = S.servers.findIndex(function(s){ return s.id===d.id; }); if(idx>=0) S.servers[idx]=d; renderServers(); closeModal(); toast('Servidor actualizado ✅', 'ok'); }
+  } catch(e) { toast('Error', 'er'); }
+}
+
+// ── ROLES ─────────────────────────────────────────────────────────────────────
+async function showRolesModal() {
+  if(!S.srv) return;
+  var roles = [];
+  try {
+    var r = await api('GET', '/api/servers/' + S.srv.id + '/roles');
+    if(r.ok) roles = await r.json();
+  } catch(e) {}
+  var rolesHtml = roles.map(function(role) {
+    return '<div class="role-item"><div class="role-color-dot" style="background:' + role.color + '"></div><div style="font-family:var(--fd);font-weight:700;font-size:15px;flex:1">' + esc(role.name) + '</div><div style="font-size:11px;color:var(--t3);margin-right:8px">' + (role.can_manage_channels?'canales ':'')+  (role.can_manage_members?'miembros':'') + '</div><button class="ricon-btn" id="edit-role-' + role.id + '">✏️</button><button class="ricon-btn" id="del-role-' + role.id + '" style="color:var(--red)">🗑</button></div>';
+  }).join('');
+  showModal('<div class="mtitle">🎭 Roles</div><div id="roles-list">' + (rolesHtml || '<div style="color:var(--t3);padding:12px;text-align:center">Sin roles personalizados</div>') + '</div><button class="btn-primary" style="width:100%;margin-top:14px" id="create-role-btn">+ Crear rol</button><button class="btn-sec" style="width:100%;margin-top:8px" id="close-roles-btn">Cerrar</button>', 'wide');
+  ge('close-roles-btn').addEventListener('click', closeModal);
+  ge('create-role-btn').addEventListener('click', showCreateRoleModal);
+  roles.forEach(function(role) {
+    var editBtn = ge('edit-role-' + role.id);
+    var delBtn = ge('del-role-' + role.id);
+    if(editBtn) (function(r){ editBtn.addEventListener('click', function(){ showEditRoleModal(r); }); })(role);
+    if(delBtn) (function(rid){ delBtn.addEventListener('click', function(){ deleteRole(rid); }); })(role.id);
+  });
+}
+function showCreateRoleModal() {
+  var swatches = RCOLS.map(function(c, i){ return '<div class="color-swatch' + (i===0?' sel':'') + '" style="background:' + c + '" data-color="' + c + '" id="sw-new-' + i + '"></div>'; }).join('');
+  showModal('<div class="mtitle">✨ Crear rol</div><div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="new-role-name" placeholder="Nuevo rol" maxlength="50"></div><div class="form-group"><label class="form-label">Color</label><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px" id="color-swatches-new">' + swatches + '</div><input type="hidden" id="new-role-color" value="' + RCOLS[0] + '"></div><div class="form-group"><label class="form-label">Permisos</label><label style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg3);border-radius:10px;cursor:pointer;margin-bottom:6px"><input type="checkbox" id="new-can-ch" style="width:16px;height:16px;accent-color:var(--acc)"><div><div style="font-weight:600">Gestionar canales</div></div></label><label style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg3);border-radius:10px;cursor:pointer"><input type="checkbox" id="new-can-mb" style="width:16px;height:16px;accent-color:var(--acc)"><div><div style="font-weight:600">Gestionar miembros</div></div></label></div><div style="display:flex;gap:10px;margin-top:16px"><button class="btn-primary" style="flex:1" id="save-new-role-btn">Crear rol</button><button class="btn-sec" id="back-roles-btn">Volver</button></div>', 'wide');
+  ge('back-roles-btn').addEventListener('click', function(){ closeModal(); showRolesModal(); });
+  ge('save-new-role-btn').addEventListener('click', saveNewRole);
+  ge('new-role-name').focus();
+  setupColorSwatches('color-swatches-new', 'new-role-color');
+}
+function showEditRoleModal(role) {
+  var swatches = RCOLS.map(function(c, i){ return '<div class="color-swatch' + (c===role.color?' sel':'') + '" style="background:' + c + '" data-color="' + c + '" id="sw-edit-' + i + '"></div>'; }).join('');
+  showModal('<div class="mtitle">✏️ Editar rol</div><input type="hidden" id="edit-role-id" value="' + role.id + '"><div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="edit-role-name" value="' + esc(role.name) + '" maxlength="50"></div><div class="form-group"><label class="form-label">Color</label><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px" id="color-swatches-edit">' + swatches + '</div><input type="hidden" id="edit-role-color" value="' + role.color + '"></div><div class="form-group"><label class="form-label">Permisos</label><label style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg3);border-radius:10px;cursor:pointer;margin-bottom:6px"><input type="checkbox" id="edit-can-ch" ' + (role.can_manage_channels?'checked':'') + ' style="width:16px;height:16px;accent-color:var(--acc)"><div><div style="font-weight:600">Gestionar canales</div></div></label><label style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg3);border-radius:10px;cursor:pointer"><input type="checkbox" id="edit-can-mb" ' + (role.can_manage_members?'checked':'') + ' style="width:16px;height:16px;accent-color:var(--acc)"><div><div style="font-weight:600">Gestionar miembros</div></div></label></div><div style="display:flex;gap:10px;margin-top:16px"><button class="btn-primary" style="flex:1" id="save-edit-role-btn">Guardar</button><button class="btn-sec" id="back-edit-roles-btn">Volver</button></div>', 'wide');
+  ge('back-edit-roles-btn').addEventListener('click', function(){ closeModal(); showRolesModal(); });
+  ge('save-edit-role-btn').addEventListener('click', saveEditRole);
+  setupColorSwatches('color-swatches-edit', 'edit-role-color');
+}
+function setupColorSwatches(containerId, hiddenId) {
+  var container = ge(containerId); if(!container) return;
+  container.querySelectorAll('.color-swatch').forEach(function(sw) {
+    sw.addEventListener('click', function() {
+      container.querySelectorAll('.color-swatch').forEach(function(s){ s.classList.remove('sel'); });
+      sw.classList.add('sel');
+      var hiddenInp = ge(hiddenId); if(hiddenInp) hiddenInp.value = sw.dataset.color;
+    });
+  });
+}
+async function saveNewRole() {
+  var name = (ge('new-role-name') ? ge('new-role-name').value : '').trim();
+  var color = ge('new-role-color') ? ge('new-role-color').value : RCOLS[0];
+  var canCh = ge('new-can-ch') ? ge('new-can-ch').checked : false;
+  var canMb = ge('new-can-mb') ? ge('new-can-mb').checked : false;
+  if(!name || !S.srv) return;
+  try {
+    var r = await api('POST', '/api/servers/' + S.srv.id + '/roles', {name:name,color:color,can_manage_channels:canCh,can_manage_members:canMb});
+    if(r.ok) { closeModal(); showRolesModal(); toast('Rol "' + name + '" creado ✅', 'ok'); }
+    else toast('Error', 'er');
+  } catch(e) { toast('Error de conexión', 'er'); }
+}
+async function saveEditRole() {
+  var id = ge('edit-role-id') ? ge('edit-role-id').value : '';
+  var name = (ge('edit-role-name') ? ge('edit-role-name').value : '').trim();
+  var color = ge('edit-role-color') ? ge('edit-role-color').value : RCOLS[0];
+  var canCh = ge('edit-can-ch') ? ge('edit-can-ch').checked : false;
+  var canMb = ge('edit-can-mb') ? ge('edit-can-mb').checked : false;
+  if(!name || !S.srv || !id) return;
+  try {
+    var r = await api('PATCH', '/api/servers/' + S.srv.id + '/roles/' + id, {name:name,color:color,can_manage_channels:canCh,can_manage_members:canMb});
+    if(r.ok) { closeModal(); showRolesModal(); toast('Rol actualizado ✅', 'ok'); }
+    else toast('Error', 'er');
+  } catch(e) { toast('Error de conexión', 'er'); }
+}
+async function deleteRole(rid) {
+  if(!S.srv || !confirm('¿Eliminar este rol?')) return;
+  try {
+    var r = await api('DELETE', '/api/servers/' + S.srv.id + '/roles/' + rid);
+    if(r.ok) { closeModal(); showRolesModal(); toast('Rol eliminado', 'in'); }
+  } catch(e) { toast('Error', 'er'); }
+}
+
+// ── VERIFY SERVER ─────────────────────────────────────────────────────────────
+async function verifyServer() {
+  if(!S.srv || !S.user || S.user.username !== 'Xokram') return;
+  var action = S.srv.verified ? 'desverificar' : 'verificar';
+  if(!confirm('¿' + action + ' el servidor "' + S.srv.name + '"?')) return;
+  try {
+    var r = await api('POST', '/api/servers/' + S.srv.id + '/verify');
+    if(!r.ok) { var d = await r.json(); toast(d.error || 'Error', 'er'); }
+  } catch(e) { toast('Error de conexión', 'er'); }
+}
+
+// ── BOOST ─────────────────────────────────────────────────────────────────────
+async function doBoost() {
+  if(!S.srv) return;
+  try {
+    var r = await api('POST', '/api/servers/' + S.srv.id + '/boost');
+    var d = await r.json();
+    if(!r.ok) { toast(d.error || 'Error', 'er'); return; }
+    S.user.boost_count = d.user_boosts; S.srv.boost_count = d.server_boosts;
+    var idx = S.servers.findIndex(function(s){ return s.id === S.srv.id; });
+    if(idx >= 0) S.servers[idx].boost_count = d.server_boosts;
+    toast(d.boosted ? '⚡ ¡Boost dado! Te quedan ' + d.user_boosts : 'Boost retirado. Tienes ' + d.user_boosts, d.boosted ? 'ok' : 'in');
+    selectServer(S.srv);
+  } catch(e) { toast('Error de conexión', 'er'); }
+}
+
+// ── SERVER MODALS ─────────────────────────────────────────────────────────────
+function showServerModal() {
+  showModal('<div class="mtitle">🚀 Servidores</div><div style="display:flex;flex-direction:column;gap:10px"><button class="btn-primary" id="create-srv-btn">✨ Crear servidor</button><div style="text-align:center;color:var(--t3);font-size:13px">o</div><button class="btn-sec" id="join-srv-btn">🔗 Unirse con código</button></div>');
+  ge('create-srv-btn').addEventListener('click', showCreateSrv);
+  ge('join-srv-btn').addEventListener('click', showJoinSrv);
+}
+function showCreateSrv() {
+  showModal('<div class="mtitle">✨ Crear servidor</div><div class="form-group"><label class="form-label">Nombre del servidor</label><input class="form-input" id="sname" type="text" placeholder="Mi servidor épico" maxlength="50"></div><div style="display:flex;gap:10px;margin-top:16px"><button class="btn-primary" style="flex:1" id="do-create-srv-btn">Crear</button><button class="btn-sec" id="cancel-create-srv-btn">Cancelar</button></div>');
+  ge('cancel-create-srv-btn').addEventListener('click', closeModal);
+  ge('do-create-srv-btn').addEventListener('click', doCreateSrv);
+  ge('sname').addEventListener('keydown', function(e){ if(e.key==='Enter') doCreateSrv(); });
+  ge('sname').focus();
+}
+async function doCreateSrv() {
+  var name = (ge('sname') ? ge('sname').value : '').trim(); if(!name) return;
+  try {
+    var r = await api('POST', '/api/servers', {name: name});
+    if(r.ok) { var srv = await r.json(); S.servers.push(srv); renderServers(); closeModal(); toast('Servidor "' + name + '" creado ✨', 'ok'); selectServer(srv); }
+    else { var d = await r.json(); toast(d.error||'Error', 'er'); }
+  } catch(e) { toast('Error de conexión', 'er'); }
+}
+function showJoinSrv() {
+  showModal('<div class="mtitle">🔗 Unirse a servidor</div><div class="form-group"><label class="form-label">Código de invitación</label><input class="form-input" id="icode" type="text" placeholder="abc123xyz"></div><div id="inv-preview-area" style="margin-top:12px"></div><div style="display:flex;gap:10px;margin-top:16px"><button class="btn-primary" style="flex:1" id="do-join-btn" disabled>Unirse</button><button class="btn-sec" id="cancel-join-btn">Cancelar</button></div>');
+  ge('cancel-join-btn').addEventListener('click', closeModal);
+  ge('do-join-btn').addEventListener('click', doJoinSrv);
+  ge('icode').addEventListener('input', function(){ previewInvite(this.value); });
+  ge('icode').focus();
+}
+var previewTimer = null;
+async function previewInvite(code) {
+  clearTimeout(previewTimer);
+  var area = ge('inv-preview-area'); var btn = ge('do-join-btn');
+  if(!area || !btn) return;
+  if(!code || code.length < 4) { area.innerHTML = ''; btn.disabled = true; return; }
+  previewTimer = setTimeout(async function() {
+    area.innerHTML = '<div style="color:var(--t3);font-size:13px;padding:8px 0">Buscando servidor...</div>';
+    try {
+      var r = await fetch('/api/invite/' + encodeURIComponent(code));
+      if(!r.ok) { area.innerHTML = '<div style="color:var(--red);font-size:13px;padding:8px 0">❌ Código inválido</div>'; btn.disabled = true; return; }
+      var srv = await r.json();
+      var bannerHtml = srv.banner_url ? '<img src="' + srv.banner_url + '" alt="">' : '<div style="width:100%;height:100%;background:linear-gradient(135deg,' + srv.icon_color + ',#1d4ed8)"></div>';
+      var icoHtml = srv.icon_url ? '<img src="' + srv.icon_url + '" alt="">' : srv.name[0].toUpperCase();
+      area.innerHTML = '<div class="inv-preview"><div class="inv-banner">' + bannerHtml + '</div><div class="inv-body"><div class="inv-srv-row"><div class="inv-ico" style="background:' + srv.icon_color + '">' + icoHtml + '</div><div><div class="inv-name">' + esc(srv.name) + (srv.verified ? '<span style="color:var(--green);font-size:16px">✓</span>' : '') + '</div></div></div>' + (srv.description?'<div style="font-size:13px;color:var(--t2);margin-bottom:10px">' + esc(srv.description) + '</div>':'') + '<div class="inv-stats"><div class="inv-stat"><div class="inv-dot" style="background:var(--green)"></div>' + srv.member_count + ' miembros</div><div class="inv-stat"><div class="inv-dot" style="background:var(--gold)"></div>⚡ ' + srv.boost_count + '</div></div></div></div>';
+      btn.disabled = false;
+    } catch(e) { area.innerHTML = '<div style="color:var(--red);font-size:13px;padding:8px 0">Error de conexión</div>'; btn.disabled = true; }
+  }, 400);
+}
+async function doJoinSrv() {
+  var code = (ge('icode') ? ge('icode').value : '').trim(); if(!code) return;
+  try {
+    var r = await api('POST', '/api/servers/join/' + code);
+    var d = await r.json();
+    if(!r.ok) { toast(d.error||'Código inválido', 'er'); return; }
+    S.servers.push(d); renderServers(); closeModal(); toast('¡Unido a "' + d.name + '"! 🎉', 'ok'); selectServer(d);
+  } catch(e) { toast('Error de conexión', 'er'); }
+}
+function showInvite() {
+  if(!S.srv) return;
+  var srv = S.srv;
+  var bannerHtml = srv.banner_url ? '<img src="' + srv.banner_url + '" alt="">' : '<div style="width:100%;height:100%;background:linear-gradient(135deg,' + srv.icon_color + ',#1d4ed8)"></div>';
+  var icoHtml = srv.icon_url ? '<img src="' + srv.icon_url + '" alt="">' : srv.name[0].toUpperCase();
+  showModal('<div class="mtitle">🔗 Invitar amigos</div><div class="inv-preview" style="margin-bottom:16px"><div class="inv-banner">' + bannerHtml + '</div><div class="inv-body"><div class="inv-srv-row"><div class="inv-ico" style="background:' + srv.icon_color + '">' + icoHtml + '</div><div><div class="inv-name">' + esc(srv.name) + (srv.verified ? '<span style="color:var(--green)">✓</span>' : '') + '</div></div></div><div class="inv-stats"><div class="inv-stat"><div class="inv-dot" style="background:var(--green)"></div>' + srv.member_count + ' miembros</div><div class="inv-stat"><div class="inv-dot" style="background:var(--gold)"></div>⚡ ' + srv.boost_count + '</div></div></div></div><p style="color:var(--t2);margin-bottom:10px;font-size:14px">Código de invitación:</p><div class="inv-box"><span id="inv-code-display">' + srv.invite_code + '</span><button class="copybtn" id="copy-code-btn">📋</button></div><button class="btn-sec" style="width:100%;margin-top:14px" id="close-invite-btn">Cerrar</button>');
+  ge('close-invite-btn').addEventListener('click', closeModal);
+  ge('copy-code-btn').addEventListener('click', function(){ navigator.clipboard.writeText(srv.invite_code); toast('Código copiado 📋', 'ok'); });
+}
+function showCreateCh(type) {
+  var label = type === 'voice' ? 'de voz' : 'de texto';
+  showModal('<div class="mtitle">+ Nuevo canal ' + label + '</div><div class="form-group"><label class="form-label">Nombre del canal</label><input class="form-input" id="chname" type="text" placeholder="general" maxlength="40"></div><div style="display:flex;gap:10px;margin-top:16px"><button class="btn-primary" style="flex:1" id="do-create-ch-btn">Crear</button><button class="btn-sec" id="cancel-ch-btn">Cancelar</button></div>');
+  ge('cancel-ch-btn').addEventListener('click', closeModal);
+  ge('do-create-ch-btn').addEventListener('click', function(){ doCreateCh(type); });
+  ge('chname').addEventListener('keydown', function(e){ if(e.key==='Enter') doCreateCh(type); });
+  ge('chname').focus();
+}
+async function doCreateCh(type) {
+  var name = (ge('chname') ? ge('chname').value : '').trim(); if(!name || !S.srv) return;
+  try {
+    var r = await api('POST', '/api/servers/' + S.srv.id + '/channels', {name: name, type: type});
+    if(r.ok) { closeModal(); selectServer(S.srv); toast('Canal #' + name + ' creado', 'ok'); }
+    else toast('Sin permisos', 'er');
+  } catch(e) { toast('Error de conexión', 'er'); }
+}
+
+// ── MEMBERS TOGGLE ────────────────────────────────────────────────────────────
+function toggleMembers() {
+  S.showMembers = !S.showMembers;
+  var p = ge('membpanel');
+  if(S.srv && S.showMembers) { p.style.display = 'flex'; p.style.flexDirection = 'column'; }
+  else p.style.display = 'none';
+}
+
+// ── CALLS ─────────────────────────────────────────────────────────────────────
+function startCall() {
+  if(!S.dm || S.callPeer) return;
+  var callId = Math.random().toString(36).substr(2, 9);
+  S.callPeer = S.dm; S.callId = callId;
+  if(S.socket) S.socket.emit('call_user', {token: S.token, target_id: S.dm.id, call_id: callId});
+  showCallUI(S.dm, 'Llamando...', false);
+}
+function showCallUI(user, status, incoming) {
+  var av = ge('call-av-el');
+  av.innerHTML = user.avatar_url ? '<img src="' + user.avatar_url + '" alt="">' : user.username[0].toUpperCase();
+  if(!user.avatar_url) av.style.background = user.avatar_color || '#7c3aed';
+  ge('call-name-el').textContent = user.username;
+  ge('call-stat-el').textContent = status;
+  ge('call-timer-el').style.display = 'none';
+  ge('call-btns-el').innerHTML = '';
+  if(incoming) {
+    var acceptBtn = document.createElement('button'); acceptBtn.className = 'call-btn accept'; acceptBtn.textContent = '📞'; acceptBtn.addEventListener('click', acceptCall);
+    var rejectBtn = document.createElement('button'); rejectBtn.className = 'call-btn end'; rejectBtn.textContent = '📵'; rejectBtn.addEventListener('click', rejectCall);
+    ge('call-btns-el').appendChild(acceptBtn); ge('call-btns-el').appendChild(rejectBtn);
+  } else {
+    var endBtn = document.createElement('button'); endBtn.className = 'call-btn end'; endBtn.textContent = '📵'; endBtn.addEventListener('click', endCall);
+    ge('call-btns-el').appendChild(endBtn);
+  }
+  ge('call-overlay').classList.add('show');
+}
+function hideCall() {
+  ge('call-overlay').classList.remove('show');
+  clearInterval(S.callTimer); S.callTimer = null; S.callSec = 0;
+  S.callPeer = null; S.callId = null;
+  if(S.rtcPc) { S.rtcPc.close(); S.rtcPc = null; }
+}
+function onCallIncoming(data) {
+  S.callPeer = data.from; S.callId = data.call_id;
+  showCallUI(data.from, 'Llamada entrante...', true);
+  toast('📞 ' + data.from.username + ' te está llamando', 'in');
+}
+function acceptCall() {
+  if(!S.callPeer) return;
+  if(S.socket) S.socket.emit('call_accepted', {token: S.token, caller_id: S.callPeer.id});
+  ge('call-stat-el').textContent = 'En llamada...';
+  startCallTimer();
+  var endBtn = document.createElement('button'); endBtn.className = 'call-btn end'; endBtn.textContent = '📵'; endBtn.addEventListener('click', endCall);
+  var muteBtn = document.createElement('button'); muteBtn.className = 'call-btn mute'; muteBtn.textContent = '🎙️'; muteBtn.id = 'mute-btn-el'; muteBtn.addEventListener('click', toggleMute);
+  ge('call-btns-el').innerHTML = ''; ge('call-btns-el').appendChild(muteBtn); ge('call-btns-el').appendChild(endBtn);
+  initWebRTC(false);
+}
+function rejectCall() {
+  if(S.callPeer && S.socket) S.socket.emit('call_rejected', {token: S.token, caller_id: S.callPeer.id});
+  hideCall();
+}
+function endCall() {
+  if(S.callPeer && S.socket) S.socket.emit('call_ended', {token: S.token, other_id: S.callPeer.id});
+  hideCall();
+}
+function onCallAccepted() {
+  ge('call-stat-el').textContent = 'En llamada...';
+  startCallTimer();
+  var endBtn = document.createElement('button'); endBtn.className = 'call-btn end'; endBtn.textContent = '📵'; endBtn.addEventListener('click', endCall);
+  var muteBtn = document.createElement('button'); muteBtn.className = 'call-btn mute'; muteBtn.textContent = '🎙️'; muteBtn.id = 'mute-btn-el'; muteBtn.addEventListener('click', toggleMute);
+  ge('call-btns-el').innerHTML = ''; ge('call-btns-el').appendChild(muteBtn); ge('call-btns-el').appendChild(endBtn);
+  initWebRTC(true);
+}
+function startCallTimer() {
+  S.callSec = 0; ge('call-timer-el').style.display = 'block';
+  S.callTimer = setInterval(function() {
+    S.callSec++;
+    var m = Math.floor(S.callSec/60), s = S.callSec % 60;
+    ge('call-timer-el').textContent = m + ':' + (s < 10 ? '0' : '') + s;
+  }, 1000);
+}
+function toggleMute() {
+  var muted = false;
+  if(S.rtcPc) S.rtcPc.getSenders().forEach(function(s){ if(s.track && s.track.kind === 'audio') { s.track.enabled = !s.track.enabled; muted = !s.track.enabled; } });
+  var btn = ge('mute-btn-el');
+  if(btn) { btn.textContent = muted ? '🔇' : '🎙️'; btn.style.background = muted ? 'var(--red)' : 'var(--bg3)'; }
+}
+async function initWebRTC(isCaller) {
+  try {
+    var stream = await navigator.mediaDevices.getUserMedia({audio: true});
+    var pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+    S.rtcPc = pc;
+    stream.getTracks().forEach(function(t){ pc.addTrack(t, stream); });
+    pc.ontrack = function(ev) { var audio = document.createElement('audio'); audio.srcObject = ev.streams[0]; audio.autoplay = true; document.body.appendChild(audio); };
+    pc.onicecandidate = function(ev) { if(ev.candidate && S.socket) S.socket.emit('voice_ice', {token: S.token, target_id: S.callPeer.id, candidate: ev.candidate}); };
+    if(isCaller) {
+      var offer = await pc.createOffer(); await pc.setLocalDescription(offer);
+      if(S.socket) S.socket.emit('voice_offer', {token: S.token, target_id: S.callPeer.id, offer: offer});
+    }
+  } catch(e) { console.warn('WebRTC:', e); toast('No se pudo acceder al micrófono', 'er'); }
+}
+async function onVoiceOffer(data) { try { if(!S.rtcPc) return; await S.rtcPc.setRemoteDescription(new RTCSessionDescription(data.offer)); var answer = await S.rtcPc.createAnswer(); await S.rtcPc.setLocalDescription(answer); if(S.socket) S.socket.emit('voice_answer', {token: S.token, target_id: data.from, answer: answer}); } catch(e){} }
+async function onVoiceAnswer(data) { try { if(S.rtcPc) await S.rtcPc.setRemoteDescription(new RTCSessionDescription(data.answer)); } catch(e){} }
+async function onVoiceIce(data) { try { if(S.rtcPc) await S.rtcPc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch(e){} }
+
+// ── VIEW ──────────────────────────────────────────────────────────────────────
+function setView(v) {
+  ge('welcome').style.display = v === 'welcome' ? 'flex' : 'none';
+  ge('friends-view').style.display = v === 'friends' ? 'flex' : 'none';
+  var cv = ge('chat-view');
+  if(v === 'chat') { cv.style.display = 'flex'; cv.style.flex = '1'; cv.style.overflow = 'hidden'; }
+  else cv.style.display = 'none';
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+function showModal(html, size) {
+  closeModal();
+  var ov = document.createElement('div'); ov.className = 'mov'; ov.id = 'cur-modal';
+  ov.addEventListener('click', function(e){ if(e.target === ov) closeModal(); });
+  var m = document.createElement('div'); m.className = 'modal' + (size ? ' ' + size : '');
+  m.innerHTML = html;
+  ov.appendChild(m); ge('modals').appendChild(ov);
+}
+function closeModal() { var m = ge('cur-modal'); if(m) m.remove(); }
+
+// ── START ─────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
