@@ -20,19 +20,21 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
-ALLOWED_EXTENSIONS = {'png','jpg','jpeg','gif','webp','mp4','pdf','txt','zip','mp3','wav','svg'}
-MEDIA_EXTENSIONS   = {'png','jpg','jpeg','gif','webp','svg'}
-AVATAR_COLORS = ['#7c3aed','#2563eb','#dc2626','#059669','#d97706','#db2777','#0891b2','#ea580c','#65a30d']
+ALLOWED = {'png','jpg','jpeg','gif','webp','mp4','pdf','txt','zip','mp3','wav','svg'}
+MEDIA   = {'png','jpg','jpeg','gif','webp','svg'}
+COLORS  = ['#7c3aed','#2563eb','#dc2626','#059669','#d97706','#db2777','#0891b2','#ea580c','#65a30d']
+XOKRAM  = 'Xokram'
 
-def allowed_file(f):
-    return '.' in f and f.rsplit('.',1)[1].lower() in ALLOWED_EXTENSIONS
+def allowed(f):
+    return '.' in f and f.rsplit('.',1)[1].lower() in ALLOWED
 
-# ── MODELS ──────────────────────────────────────────────────────────
+# ── MODELS ──────────────────────────────────────────────────────────────────
 
 class User(db.Model):
-    id            = db.Column(db.String(36),  primary_key=True, default=lambda: str(uuid.uuid4()))
+    __tablename__ = 'user'
+    id            = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     username      = db.Column(db.String(50),  unique=True, nullable=False)
     email         = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
@@ -45,12 +47,37 @@ class User(db.Model):
     created_at    = db.Column(db.DateTime,    default=datetime.utcnow)
 
     def to_dict(self):
-        return {'id': self.id, 'username': self.username,
-                'avatar_color': self.avatar_color, 'avatar_url': self.avatar_url,
-                'banner_url': self.banner_url, 'bio': self.bio,
-                'boost_count': self.boost_count, 'status': self.status}
+        try:
+            st = UserStatus.query.filter_by(user_id=self.id).first()
+            status_data = None
+            if st and st.expires_at > datetime.utcnow():
+                status_data = {
+                    'text': st.text or '',
+                    'image_url': st.image_url,
+                    'created_at': st.created_at.isoformat(),
+                    'expires_at': st.expires_at.isoformat()
+                }
+        except Exception:
+            status_data = None
+        return {
+            'id': self.id, 'username': self.username,
+            'avatar_color': self.avatar_color, 'avatar_url': self.avatar_url,
+            'banner_url': self.banner_url, 'bio': self.bio or '',
+            'boost_count': self.boost_count or 5, 'status': self.status,
+            'user_status': status_data
+        }
+
+class UserStatus(db.Model):
+    __tablename__ = 'user_status'
+    id         = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id    = db.Column(db.String(36), db.ForeignKey('user.id'), unique=True, nullable=False)
+    text       = db.Column(db.String(100), nullable=True)
+    image_url  = db.Column(db.String(500), nullable=True)
+    expires_at = db.Column(db.DateTime,    nullable=False)
+    created_at = db.Column(db.DateTime,    default=datetime.utcnow)
 
 class Friendship(db.Model):
+    __tablename__ = 'friendship'
     id          = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     sender_id   = db.Column(db.String(36), db.ForeignKey('user.id'), nullable=False)
     receiver_id = db.Column(db.String(36), db.ForeignKey('user.id'), nullable=False)
@@ -58,6 +85,7 @@ class Friendship(db.Model):
     created_at  = db.Column(db.DateTime,   default=datetime.utcnow)
 
 class Server(db.Model):
+    __tablename__ = 'server'
     id          = db.Column(db.String(36),  primary_key=True, default=lambda: str(uuid.uuid4()))
     name        = db.Column(db.String(100), nullable=False)
     owner_id    = db.Column(db.String(36),  db.ForeignKey('user.id'), nullable=False)
@@ -67,29 +95,61 @@ class Server(db.Model):
     banner_url  = db.Column(db.String(500), nullable=True)
     description = db.Column(db.String(200), nullable=True)
     boost_count = db.Column(db.Integer,     default=0)
+    verified    = db.Column(db.Boolean,     default=False)
     created_at  = db.Column(db.DateTime,    default=datetime.utcnow)
 
     def to_dict(self):
         mc = ServerMember.query.filter_by(server_id=self.id).count()
-        return {'id': self.id, 'name': self.name, 'owner_id': self.owner_id,
-                'invite_code': self.invite_code, 'icon_color': self.icon_color,
-                'icon_url': self.icon_url, 'banner_url': self.banner_url,
-                'description': self.description, 'boost_count': self.boost_count,
-                'member_count': mc}
+        return {
+            'id': self.id, 'name': self.name, 'owner_id': self.owner_id,
+            'invite_code': self.invite_code, 'icon_color': self.icon_color,
+            'icon_url': self.icon_url, 'banner_url': self.banner_url,
+            'description': self.description or '', 'boost_count': self.boost_count or 0,
+            'verified': bool(self.verified), 'member_count': mc
+        }
 
 class ServerBoost(db.Model):
+    __tablename__ = 'server_boost'
     id         = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     server_id  = db.Column(db.String(36), db.ForeignKey('server.id'), nullable=False)
     user_id    = db.Column(db.String(36), db.ForeignKey('user.id'),   nullable=False)
     created_at = db.Column(db.DateTime,   default=datetime.utcnow)
 
 class ServerMember(db.Model):
+    __tablename__ = 'server_member'
     id        = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     server_id = db.Column(db.String(36), db.ForeignKey('server.id'), nullable=False)
     user_id   = db.Column(db.String(36), db.ForeignKey('user.id'),   nullable=False)
     role      = db.Column(db.String(20), default='member')
 
+class Role(db.Model):
+    __tablename__ = 'role'
+    id                  = db.Column(db.String(36),  primary_key=True, default=lambda: str(uuid.uuid4()))
+    server_id           = db.Column(db.String(36),  db.ForeignKey('server.id'), nullable=False)
+    name                = db.Column(db.String(50),  nullable=False)
+    color               = db.Column(db.String(20),  default='#99aab5')
+    position            = db.Column(db.Integer,     default=0)
+    can_manage_channels = db.Column(db.Boolean,     default=False)
+    can_manage_members  = db.Column(db.Boolean,     default=False)
+    created_at          = db.Column(db.DateTime,    default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id, 'server_id': self.server_id, 'name': self.name,
+            'color': self.color, 'position': self.position,
+            'can_manage_channels': bool(self.can_manage_channels),
+            'can_manage_members': bool(self.can_manage_members)
+        }
+
+class MemberRole(db.Model):
+    __tablename__ = 'member_role'
+    id        = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    server_id = db.Column(db.String(36), db.ForeignKey('server.id'), nullable=False)
+    user_id   = db.Column(db.String(36), db.ForeignKey('user.id'),   nullable=False)
+    role_id   = db.Column(db.String(36), db.ForeignKey('role.id'),   nullable=False)
+
 class Channel(db.Model):
+    __tablename__ = 'channel'
     id           = db.Column(db.String(36),  primary_key=True, default=lambda: str(uuid.uuid4()))
     server_id    = db.Column(db.String(36),  db.ForeignKey('server.id'), nullable=False)
     name         = db.Column(db.String(100), nullable=False)
@@ -100,6 +160,7 @@ class Channel(db.Model):
         return {'id': self.id, 'server_id': self.server_id, 'name': self.name, 'type': self.channel_type}
 
 class Message(db.Model):
+    __tablename__ = 'message'
     id         = db.Column(db.String(36),  primary_key=True, default=lambda: str(uuid.uuid4()))
     channel_id = db.Column(db.String(36),  db.ForeignKey('channel.id'), nullable=True)
     dm_room_id = db.Column(db.String(100), nullable=True)
@@ -115,19 +176,60 @@ class Message(db.Model):
         reactions = {}
         for r in Reaction.query.filter_by(message_id=self.id).all():
             reactions[r.emoji] = reactions.get(r.emoji, 0) + 1
-        return {'id': self.id, 'channel_id': self.channel_id, 'dm_room_id': self.dm_room_id,
-                'sender': sender.to_dict() if sender else None,
-                'content': self.content, 'file_url': self.file_url,
-                'file_name': self.file_name, 'file_type': self.file_type,
-                'reactions': reactions, 'created_at': self.created_at.isoformat()}
+        return {
+            'id': self.id, 'channel_id': self.channel_id, 'dm_room_id': self.dm_room_id,
+            'sender': sender.to_dict() if sender else None,
+            'content': self.content, 'file_url': self.file_url,
+            'file_name': self.file_name, 'file_type': self.file_type,
+            'reactions': reactions, 'created_at': self.created_at.isoformat()
+        }
 
 class Reaction(db.Model):
+    __tablename__ = 'reaction'
     id         = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     message_id = db.Column(db.String(36), db.ForeignKey('message.id'), nullable=False)
     user_id    = db.Column(db.String(36), db.ForeignKey('user.id'),    nullable=False)
     emoji      = db.Column(db.String(10), nullable=False)
 
-# ── ROUTES ──────────────────────────────────────────────────────────
+# ── ADD MISSING COLUMNS TO OLD DATABASES ───────────────────────────────────
+def migrate_db():
+    """Add new columns to existing tables if they don't exist."""
+    from sqlalchemy import text, inspect
+    insp = inspect(db.engine)
+    
+    def has_col(table, col):
+        try:
+            cols = [c['name'] for c in insp.get_columns(table)]
+            return col in cols
+        except:
+            return True
+    
+    def has_table(table):
+        try:
+            return insp.has_table(table)
+        except:
+            return False
+    
+    with db.engine.connect() as conn:
+        if has_table('user'):
+            for col, typ in [('avatar_url','VARCHAR(500)'),('banner_url','VARCHAR(500)'),
+                              ('bio','VARCHAR(200)'),('boost_count','INTEGER DEFAULT 5')]:
+                if not has_col('user', col):
+                    try: conn.execute(text(f'ALTER TABLE "user" ADD COLUMN {col} {typ}'))
+                    except: pass
+        if has_table('server'):
+            for col, typ in [('icon_url','VARCHAR(500)'),('banner_url','VARCHAR(500)'),
+                              ('description','VARCHAR(200)'),('boost_count','INTEGER DEFAULT 0'),
+                              ('verified','BOOLEAN DEFAULT FALSE')]:
+                if not has_col('server', col):
+                    try: conn.execute(text(f'ALTER TABLE "server" ADD COLUMN {col} {typ}'))
+                    except: pass
+        try:
+            conn.commit()
+        except:
+            pass
+
+# ── ROUTES ──────────────────────────────────────────────────────────────────
 
 @app.route('/')
 def index(): return render_template('index.html')
@@ -135,46 +237,52 @@ def index(): return render_template('index.html')
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename): return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-# Auth
 @app.route('/api/register', methods=['POST'])
 def register():
-    d = request.get_json()
-    username = (d.get('username') or '').strip()
-    email    = (d.get('email')    or '').strip().lower()
-    password =  d.get('password') or ''
-    if not username or not email or not password: return jsonify({'error':'Faltan campos'}),400
-    if len(username)<3 or len(username)>20: return jsonify({'error':'Username 3-20 chars'}),400
-    if User.query.filter_by(username=username).first(): return jsonify({'error':'Username en uso'}),400
-    if User.query.filter_by(email=email).first(): return jsonify({'error':'Email ya registrado'}),400
-    if len(password)<6: return jsonify({'error':'Contraseña mínimo 6 caracteres'}),400
-    user = User(username=username, email=email,
-                password_hash=bcrypt.generate_password_hash(password).decode(),
-                avatar_color=random.choice(AVATAR_COLORS))
-    db.session.add(user); db.session.commit()
-    return jsonify({'token': create_access_token(identity=user.id), 'user': user.to_dict()})
+    try:
+        d = request.get_json()
+        username = (d.get('username') or '').strip()
+        email    = (d.get('email')    or '').strip().lower()
+        password =  d.get('password') or ''
+        if not username or not email or not password: return jsonify({'error':'Faltan campos'}),400
+        if len(username)<3 or len(username)>20: return jsonify({'error':'Username 3-20 chars'}),400
+        if User.query.filter_by(username=username).first(): return jsonify({'error':'Username en uso'}),400
+        if User.query.filter_by(email=email).first(): return jsonify({'error':'Email ya registrado'}),400
+        if len(password)<6: return jsonify({'error':'Contraseña mínimo 6 caracteres'}),400
+        user = User(username=username, email=email,
+                    password_hash=bcrypt.generate_password_hash(password).decode(),
+                    avatar_color=random.choice(COLORS))
+        db.session.add(user); db.session.commit()
+        return jsonify({'token': create_access_token(identity=user.id), 'user': user.to_dict()})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/login', methods=['POST'])
 def login():
-    d = request.get_json()
-    ident = (d.get('username') or '').strip(); pw = d.get('password') or ''
-    user  = User.query.filter((User.username==ident)|(User.email==ident.lower())).first()
-    if not user or not bcrypt.check_password_hash(user.password_hash, pw):
-        return jsonify({'error':'Usuario o contraseña incorrectos'}),401
-    user.status='online'; db.session.commit()
-    return jsonify({'token': create_access_token(identity=user.id), 'user': user.to_dict()})
+    try:
+        d = request.get_json()
+        ident = (d.get('username') or '').strip(); pw = d.get('password') or ''
+        user = User.query.filter((User.username==ident)|(User.email==ident.lower())).first()
+        if not user or not bcrypt.check_password_hash(user.password_hash, pw):
+            return jsonify({'error':'Usuario o contraseña incorrectos'}),401
+        user.status='online'; db.session.commit()
+        return jsonify({'token': create_access_token(identity=user.id), 'user': user.to_dict()})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/me')
 @jwt_required()
 def get_me():
-    u = User.query.get(get_jwt_identity())
-    return jsonify(u.to_dict()) if u else (jsonify({'error':'Not found'}),404)
+    try:
+        u = User.query.get(get_jwt_identity())
+        return jsonify(u.to_dict()) if u else (jsonify({'error':'Not found'}),404)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
-# Profile
 @app.route('/api/me/profile', methods=['PATCH'])
 @jwt_required()
 def update_profile():
-    user = User.query.get(get_jwt_identity())
-    d = request.get_json()
+    user = User.query.get(get_jwt_identity()); d = request.get_json()
     if 'bio' in d: user.bio = (d['bio'] or '')[:200]
     db.session.commit(); return jsonify(user.to_dict())
 
@@ -182,7 +290,7 @@ def _save_media(field, prefix):
     if field not in request.files: return None, 'Sin archivo'
     file = request.files[field]
     ext  = (file.filename or '').rsplit('.',1)[-1].lower()
-    if ext not in MEDIA_EXTENSIONS: return None, 'Solo imágenes/GIFs'
+    if ext not in MEDIA: return None, 'Solo imágenes/GIFs'
     fname = f"{prefix}_{uuid.uuid4()}.{ext}"
     file.save(os.path.join(app.config['UPLOAD_FOLDER'], fname))
     return f'/uploads/{fname}', None
@@ -205,13 +313,40 @@ def upload_my_banner():
     user.banner_url = url; db.session.commit()
     return jsonify(user.to_dict())
 
-# Friends
+@app.route('/api/me/status', methods=['POST'])
+@jwt_required()
+def set_status():
+    uid = get_jwt_identity()
+    text = (request.form.get('text') or '')[:100]
+    st = UserStatus.query.filter_by(user_id=uid).first()
+    image_url = None
+    if 'file' in request.files:
+        url, err = _save_media('file', 'st')
+        if not err: image_url = url
+    if not st:
+        st = UserStatus(user_id=uid, text=text, image_url=image_url,
+                        expires_at=datetime.utcnow()+timedelta(hours=12))
+        db.session.add(st)
+    else:
+        st.text=text; st.created_at=datetime.utcnow()
+        st.expires_at=datetime.utcnow()+timedelta(hours=12)
+        if image_url: st.image_url=image_url
+    db.session.commit()
+    return jsonify(User.query.get(uid).to_dict())
+
+@app.route('/api/me/status', methods=['DELETE'])
+@jwt_required()
+def delete_status():
+    uid = get_jwt_identity()
+    st = UserStatus.query.filter_by(user_id=uid).first()
+    if st: db.session.delete(st); db.session.commit()
+    return jsonify({'ok': True})
+
 @app.route('/api/friends/request', methods=['POST'])
 @jwt_required()
 def send_friend_request():
-    uid = get_jwt_identity()
-    tu  = (request.get_json().get('username') or '').strip()
-    t   = User.query.filter_by(username=tu).first()
+    uid = get_jwt_identity(); tu = (request.get_json().get('username') or '').strip()
+    t = User.query.filter_by(username=tu).first()
     if not t: return jsonify({'error':'Usuario no encontrado'}),404
     if t.id==uid: return jsonify({'error':'No puedes añadirte a ti mismo'}),400
     ex = Friendship.query.filter(
@@ -243,7 +378,7 @@ def reject_friend(fid):
 @jwt_required()
 def get_friends():
     uid = get_jwt_identity()
-    fs  = Friendship.query.filter(
+    fs = Friendship.query.filter(
         ((Friendship.sender_id==uid)|(Friendship.receiver_id==uid))&(Friendship.status=='accepted')).all()
     friends = []
     for f in fs:
@@ -256,7 +391,6 @@ def get_friends():
         if u: pending.append({'friendship_id':f.id,'user':u.to_dict()})
     return jsonify({'friends':friends,'pending':pending})
 
-# Servers
 @app.route('/api/servers')
 @jwt_required()
 def get_servers():
@@ -268,9 +402,9 @@ def get_servers():
 @app.route('/api/servers', methods=['POST'])
 @jwt_required()
 def create_server():
-    uid  = get_jwt_identity(); name=(request.get_json().get('name') or '').strip()
+    uid=get_jwt_identity(); name=(request.get_json().get('name') or '').strip()
     if not name: return jsonify({'error':'Nombre requerido'}),400
-    s = Server(name=name,owner_id=uid,icon_color=random.choice(AVATAR_COLORS))
+    s = Server(name=name,owner_id=uid,icon_color=random.choice(COLORS))
     db.session.add(s); db.session.flush()
     db.session.add(ServerMember(server_id=s.id,user_id=uid,role='owner'))
     db.session.add(Channel(server_id=s.id,name='general'))
@@ -305,6 +439,18 @@ def upload_server_banner(sid):
     if err: return jsonify({'error':err}),400
     s.banner_url=url; db.session.commit(); return jsonify(s.to_dict())
 
+@app.route('/api/servers/<sid>/verify', methods=['POST'])
+@jwt_required()
+def verify_server(sid):
+    uid=get_jwt_identity(); user=User.query.get(uid)
+    if not user or user.username != XOKRAM:
+        return jsonify({'error':'Solo Xokram puede verificar servidores'}),403
+    s=Server.query.get(sid)
+    if not s: return jsonify({'error':'No encontrado'}),404
+    s.verified = not bool(s.verified); db.session.commit()
+    socketio.emit('server_verified',{'server':s.to_dict()},room=f'server_{sid}')
+    return jsonify(s.to_dict())
+
 @app.route('/api/servers/<sid>/boost', methods=['POST'])
 @jwt_required()
 def boost_server(sid):
@@ -314,12 +460,14 @@ def boost_server(sid):
         return jsonify({'error':'No eres miembro'}),403
     already=ServerBoost.query.filter_by(server_id=sid,user_id=uid).first()
     if already:
-        db.session.delete(already); s.boost_count=max(0,s.boost_count-1); user.boost_count+=1
+        db.session.delete(already)
+        s.boost_count=max(0,(s.boost_count or 0)-1)
+        user.boost_count=(user.boost_count or 0)+1
         db.session.commit()
         return jsonify({'boosted':False,'server_boosts':s.boost_count,'user_boosts':user.boost_count})
-    if user.boost_count<=0: return jsonify({'error':'No te quedan boosts'}),400
+    if (user.boost_count or 0)<=0: return jsonify({'error':'No te quedan boosts'}),400
     db.session.add(ServerBoost(server_id=sid,user_id=uid))
-    s.boost_count+=1; user.boost_count-=1; db.session.commit()
+    s.boost_count=(s.boost_count or 0)+1; user.boost_count=(user.boost_count or 5)-1; db.session.commit()
     socketio.emit('server_boosted',{'server':s.to_dict()},room=f'server_{sid}')
     return jsonify({'boosted':True,'server_boosts':s.boost_count,'user_boosts':user.boost_count})
 
@@ -352,8 +500,9 @@ def get_channels(sid):
 def create_channel(sid):
     uid=get_jwt_identity(); m=ServerMember.query.filter_by(server_id=sid,user_id=uid).first()
     if not m or m.role not in ['owner','admin']: return jsonify({'error':'Sin permisos'}),403
-    name=(request.get_json().get('name') or 'nuevo-canal').lower().replace(' ','-')[:40]
-    ch=Channel(server_id=sid,name=name); db.session.add(ch); db.session.commit()
+    d=request.get_json(); name=(d.get('name') or 'nuevo-canal').lower().replace(' ','-')[:40]
+    ctype=d.get('type','text')
+    ch=Channel(server_id=sid,name=name,channel_type=ctype); db.session.add(ch); db.session.commit()
     return jsonify(ch.to_dict())
 
 @app.route('/api/servers/<sid>/members')
@@ -366,15 +515,70 @@ def get_members(sid):
     for m in ServerMember.query.filter_by(server_id=sid).all():
         u=User.query.get(m.user_id)
         if u:
-            d=u.to_dict(); d['role']=m.role; result.append(d)
+            d=u.to_dict(); d['role']=m.role
+            member_roles=[]
+            try:
+                for mr in MemberRole.query.filter_by(server_id=sid,user_id=m.user_id).all():
+                    r=Role.query.get(mr.role_id)
+                    if r: member_roles.append(r.to_dict())
+            except: pass
+            d['roles']=member_roles; result.append(d)
     return jsonify(result)
 
-# Messages
+@app.route('/api/servers/<sid>/roles')
+@jwt_required()
+def get_roles(sid):
+    uid=get_jwt_identity()
+    if not ServerMember.query.filter_by(server_id=sid,user_id=uid).first():
+        return jsonify({'error':'No eres miembro'}),403
+    try:
+        roles=Role.query.filter_by(server_id=sid).order_by(Role.position.desc()).all()
+        return jsonify([r.to_dict() for r in roles])
+    except:
+        return jsonify([])
+
+@app.route('/api/servers/<sid>/roles', methods=['POST'])
+@jwt_required()
+def create_role(sid):
+    uid=get_jwt_identity(); m=ServerMember.query.filter_by(server_id=sid,user_id=uid).first()
+    if not m or m.role not in ['owner','admin']: return jsonify({'error':'Sin permisos'}),403
+    d=request.get_json()
+    pos=Role.query.filter_by(server_id=sid).count()
+    r=Role(server_id=sid,name=(d.get('name') or 'Rol')[:50],color=d.get('color','#99aab5'),
+           position=pos,can_manage_channels=bool(d.get('can_manage_channels')),
+           can_manage_members=bool(d.get('can_manage_members')))
+    db.session.add(r); db.session.commit()
+    return jsonify(r.to_dict())
+
+@app.route('/api/servers/<sid>/roles/<rid>', methods=['PATCH'])
+@jwt_required()
+def update_role(sid,rid):
+    uid=get_jwt_identity(); m=ServerMember.query.filter_by(server_id=sid,user_id=uid).first()
+    if not m or m.role not in ['owner','admin']: return jsonify({'error':'Sin permisos'}),403
+    r=Role.query.get(rid)
+    if not r or r.server_id!=sid: return jsonify({'error':'No encontrado'}),404
+    d=request.get_json()
+    if 'name' in d: r.name=d['name'][:50]
+    if 'color' in d: r.color=d['color']
+    if 'can_manage_channels' in d: r.can_manage_channels=bool(d['can_manage_channels'])
+    if 'can_manage_members' in d: r.can_manage_members=bool(d['can_manage_members'])
+    db.session.commit(); return jsonify(r.to_dict())
+
+@app.route('/api/servers/<sid>/roles/<rid>', methods=['DELETE'])
+@jwt_required()
+def delete_role(sid,rid):
+    uid=get_jwt_identity(); m=ServerMember.query.filter_by(server_id=sid,user_id=uid).first()
+    if not m or m.role not in ['owner','admin']: return jsonify({'error':'Sin permisos'}),403
+    r=Role.query.get(rid)
+    if not r or r.server_id!=sid: return jsonify({'error':'No encontrado'}),404
+    MemberRole.query.filter_by(role_id=rid).delete()
+    db.session.delete(r); db.session.commit(); return jsonify({'ok':True})
+
 @app.route('/api/channels/<cid>/messages')
 @jwt_required()
 def get_channel_messages(cid):
     uid=get_jwt_identity(); ch=Channel.query.get(cid)
-    if not ch: return jsonify({'error':'Canal no encontrado'}),404
+    if not ch: return jsonify({'error':'No encontrado'}),404
     if not ServerMember.query.filter_by(server_id=ch.server_id,user_id=uid).first():
         return jsonify({'error':'Sin acceso'}),403
     return jsonify([m.to_dict() for m in Message.query.filter_by(channel_id=cid).order_by(Message.created_at).limit(100).all()])
@@ -390,7 +594,7 @@ def get_dm_messages(fid):
 def upload_file():
     if 'file' not in request.files: return jsonify({'error':'Sin archivo'}),400
     file=request.files['file']
-    if not file.filename or not allowed_file(file.filename): return jsonify({'error':'Tipo no permitido'}),400
+    if not file.filename or not allowed(file.filename): return jsonify({'error':'Tipo no permitido'}),400
     ext=file.filename.rsplit('.',1)[1].lower(); fname=f"{uuid.uuid4()}.{ext}"
     file.save(os.path.join(app.config['UPLOAD_FOLDER'],fname))
     return jsonify({'url':f'/uploads/{fname}','name':file.filename,'type':ext})
@@ -410,7 +614,8 @@ def react(mid):
     socketio.emit('reaction_update',{'message_id':mid,'reactions':counts},room=room)
     return jsonify({'reactions':counts})
 
-# Sockets
+# ── SOCKETS ─────────────────────────────────────────────────────────────────
+
 @socketio.on('authenticate')
 def on_authenticate(data):
     try:
@@ -454,10 +659,64 @@ def on_typing(data):
         if user: emit('user_typing',{'username':user.username},room=data.get('room'),include_self=False)
     except: pass
 
+@socketio.on('call_user')
+def on_call_user(data):
+    try:
+        uid=decode_token(data.get('token',''))['sub']; user=User.query.get(uid)
+        if user: emit('call_incoming',{'from':user.to_dict(),'call_id':data.get('call_id')},room=f'user_{data.get("target_id")}')
+    except: pass
+
+@socketio.on('call_accepted')
+def on_call_accepted(data):
+    try:
+        uid=decode_token(data.get('token',''))['sub']; user=User.query.get(uid)
+        if user: emit('call_accepted',{'from':user.to_dict()},room=f'user_{data.get("caller_id")}')
+    except: pass
+
+@socketio.on('call_rejected')
+def on_call_rejected(data):
+    try:
+        emit('call_rejected',{},room=f'user_{data.get("caller_id")}')
+    except: pass
+
+@socketio.on('call_ended')
+def on_call_ended(data):
+    try:
+        emit('call_ended',{},room=f'user_{data.get("other_id")}')
+    except: pass
+
+@socketio.on('voice_offer')
+def on_voice_offer(data):
+    try:
+        uid=decode_token(data.get('token',''))['sub']
+        emit('voice_offer',{'offer':data.get('offer'),'from':uid},room=f'user_{data.get("target_id")}')
+    except: pass
+
+@socketio.on('voice_answer')
+def on_voice_answer(data):
+    try:
+        uid=decode_token(data.get('token',''))['sub']
+        emit('voice_answer',{'answer':data.get('answer'),'from':uid},room=f'user_{data.get("target_id")}')
+    except: pass
+
+@socketio.on('voice_ice')
+def on_voice_ice(data):
+    try:
+        uid=decode_token(data.get('token',''))['sub']
+        emit('voice_ice',{'candidate':data.get('candidate'),'from':uid},room=f'user_{data.get("target_id")}')
+    except: pass
+
 @socketio.on('disconnect')
 def on_disconnect(): pass
+
+# ── STARTUP ──────────────────────────────────────────────────────────────────
+
 with app.app_context():
     db.create_all()
+    try:
+        migrate_db()
+    except Exception as e:
+        print(f"Migration warning: {e}")
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=int(os.environ.get('PORT',5000)), debug=False)
